@@ -1,3 +1,71 @@
+--[[
+╔══════════════════════════════════════════════════════════════════════╗
+║              SEBAS AI · MULTI-PROVIDER CONTROLLER  v7.0.0       ║
+║             "LUXE REDESIGN · POLISH"  ·  by IKKYU                     ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  GUI REDESIGN (อ้างอิง LUXE HUB dashboard):                          ║
+║  ✅ Cover Flow Carousel tabs — 3D card flip + swipe (mobile-first)    ║
+║  ✅ ย่อ/ขยาย GUI — Vortex animation + spin pill                       ║
+║  ✅ ลาก GUI จับเส้นข้างล่าง (bottom drag bar) — ตอบสนองทันที           ║
+║  ✅ ปรับขนาด GUI จับมุมล่างซ้าย (bottom-left resize grip)              ║
+║  ✅ Popup เปิด/ปิดใหม่ — Scale-spring + rotate + streak particles     ║
+║  ✅ เลือกแท็บ (carousel) + เปลี่ยนธีม 8 แบบ พร้อม preview cards       ║
+║  ✅ ระบบเสียงกลาง SND — แก้ ID/Volume แยกตามประเภท + กันเสียงซ้อน     ║
+║  ✅ Animation กลาง ANIM — tween กันซ้อน/ค้าง (tag-based kill)         ║
+║  ✅ Event-driven — ตัด loop ที่ไม่จำเป็น เหลือ maintenance loop เดียว  ║
+║  ✅ Mobile-first — ปัด carousel, จอเล็กครบทุกฟังก์ชัน, ไม่หน่วง      ║
+║  ✅ Multi API Key 1-10 + fallback rotation + live models ⭐FREE       ║
+║  ✅ Login ครั้งแรกบังคับ — ชื่อดึงจาก Roblox ตั้งรหัสเอง (Google Sheets) ║
+║  ✅ Premium/Normal — แยกชัดฟีเจอร์ใช้ได้/ล็อค + อัปเดตสถานะสด 5 นาที  ║
+║  ✅ หน้า Profile เต็มรูปแบบ (การ์ดแรก) — สถิติ/tier/อัปเกรด/logout    ║
+║  ✅ ทุก popup/modal ลากได้ + clamp 4 ขอบจอ + รองรับจอหมุน/จอจิ๋ว      ║
+╠══════════════════════════════════════════════════════════════════════╣
+║  v7.0 POLISH — แก้ตามฟีดแบ็ก + CRITICAL FIX:                         ║
+║  · FIX Sidebar สูง 1px → แท็บทั้ง 11 โผล่ปกติ                         ║
+║  · FIX navIdx nil → switchTab crash (หน้า/HUD/auto-connect ตายหมด) ║
+║  · ลาก GUI แบบ damped-smooth ไหลตามนิ้วมีหน่วงนุ่ม ๆ                  ║
+║  · Resize สมูท + grab feedback (เงาเข้ม/ขอบสว่าง/จุดเกาะชัด)         ║
+║  · ชุดเสียงซอฟใหม่ เบาลื่นหู ไม่ดังกระแทก (ตัด snap.mp3 ทั้งหมด)      ║
+║  · แอนิเมชั่นนิ่งขึ้น: ตัด rotation แรง, Quint นุ่ม, ปุ่มกดมีหน่วง    ║
+║  · FIX v7: locals เกินลิมิต 200 ทำให้ compile ไม่ผ่าน (รันแล้วเงียบ) ║
+║  v7.0 FIX ROUND 2:                                                  ║
+║  · Resize grip ใหญ่ชัดที่มุมซ้ายล่าง + ตอบทันที 1:1 ไม่กระตุก      ║
+║  · เสียงเริ่มต้นทุกหมวด 100% — ไปปรับเองได้ในหน้า Sound Mixer        ║
+║  · FIX Tutorial: วงตรงจุด การ์ดไม่หลุดจอ แตะที่ไหนก็ได้ = ถัดไป   ║
+║  v7.0 AI RESEARCH KIT:                                              ║
+║  · ดูข้อมูลผู้เล่น: อายุบัญชี/เพื่อน/followers/ชุดที่สวม (API+cache)  ║
+║  · ตัวตน AI = chat_g0d — ถูกถามเรื่องบัญชีก็ไปดูข้อมูลจริง           ║
+║  · IP-Geo (ipwho.is) ประเทศ/เมือง/timezone + เวลาทุกประเทศจาก UTC ║
+║  · ข่าวสารสด ๆ (Google News RSS) เมื่อมีคนถามเรื่องข่าว            ║
+║  v7.0 UI OVERHAUL (COVER FLOW EDITION):                             ║
+║  · แท็บแบบ Cover Flow Carousel — ปัดซ้าย/ขวา · แตะการ์ด            ║
+║  · สถานะคีย์ real-time — ตรวจใหม่ทุก 60s + หลังทุกคำขอ AI           ║
+║  · โปรไฟล์ตัวเอง — กด avatar ขวาบน (ข้อมูล Roblox จริงจาก API)     ║
+║  · Layout audit ทุกหน้าทุกจอ — กันทับ/หลุดจอ แนวตั้ง-แนวนอน        ║
+║  v7.0 ADMIN & OWNER ROUND:                                          ║
+║  · เสียงเริ่มต้นทุกหมวด 200% (preset v7 — ปรับลดเองได้ใน Mixer)    ║
+║  · อวตาร Roblox จริง (ภาพ headshot) บน header/โปรไฟล์/login       ║
+║  · Login บังคับตั้งแต่ครั้งแรกเสมอ — ไม่มีเซิร์ฟเวอร์ก็ใช้ได้
+║    (บัญชีท้องถิ่น โหมดเจ้าของ) · มีเซิร์ฟเวอร์ = premium จากแอดมิน  ║
+║  · แอดมินดูสถานะผู้ใช้สด (ออนไลน์/เกมล่าสุด/เวอร์ชั่น) ผ่าน Sheets DB ║
+║  v7.0 POLISH ROUND 2 (ตามฟีดแบ็ก):                                 ║
+║  · เสียง 16 หมวด "ไม่ซ้ำกันเลย" — คู่จับ/วาง (drag+place) ตอนลาก  ║
+║  · ปัด carousel เริ่มต้นเนียน (re-anchor ไม่กระโดด) ตัวหนังสือชัดขึ้น ║
+║  · การ์ดธีมแสดงสีของธีมตัวเองเสมอ + ป้าย ✓ ใช้งาน + พรีวิวใหญ่ขึ้น ║
+║  · ย่อแล้ว pill ทึบตัว เห็นชัด ไม่โปร่งใส + มีเงา                    ║
+║  · ทุกหน้าต่าง/ป๊อปอัพ clamp เต็มขอบจอ 4 ด้าน (ไม่มีทางหลุดจอ)      ║
+║  v7.0 STABILITY ROUND (แก้ตามฟีดแบ็กเครื่องจริง):                   ║
+║  · FIX ปัด carousel ไม่ได้เลยในเครื่องจริง (gameProcessed บล็อค) ║
+║  · Screen Hammer — ดึง GUI กลับเข้าจอทุก 0.4 วิ + ฟื้น Camera  ║
+║  · Login เคร่งครัด: ไม่ login = ใช้ไม่ได้ · ชื่อ Roblox ห้ามซ้ำ     ║
+║  · ปุ่ม ❓ คู่มือเชื่อม Google Sheets บนการ์ด login                   ║
+║  · Boot-Safe: splash ทันที + กล่อง error แดง — ไม่มี "รันแล้วเงียบ" ║
+╚══════════════════════════════════════════════════════════════════════╝
+]]
+
+-- ═══════════════════════════════════════════════════════════════
+-- SAFE SERVICE GETTERS
+-- ═══════════════════════════════════════════════════════════════
 local function safeGetService(name)
         local ok, svc = pcall(function() return game:GetService(name) end)
         if ok and svc then return svc end
@@ -21,6 +89,11 @@ if not Players or not RunService or not TweenService or not UIS then
         return
 end
 
+-- ═══════════════════════════════════════════════════════════════
+-- BOOT-SAFE — กัน "รันแล้วเงียบ" ไปทั้งชีวิต
+--   1) splash "กำลังโหลด" ขึ้นทันทีที่รัน (p03 จะปิดให้เมื่อ GUI พร้อม)
+--   2) BOOT_ERR(msg) = กล่องแดงบนจอ บอกสาเหตุที่สคริปต์หยุด
+-- ═══════════════════════════════════════════════════════════════
 local function bootRoot()
         if CoreGui then return CoreGui end
         local ok, pg = pcall(function()
@@ -176,7 +249,14 @@ local MAX_KEYS       = 10
 local VERSION_TAG    = "v7.0"
 
 
-DB_URL = "https://ollama.com/api"                                    -- ← วาง URL ตรงนี้
+-- ═══════════════════════════════════════════════════════════════
+-- SEBAS USER DATABASE (Google Sheets) — ระบบ login + premium/normal
+--   วิธีเปิดใช้งาน: วาง URL ของ Apps Script Web app ของคุณใน DB_URL
+--   ด้านล่างนี้ (วิธีสร้าง URL อ่านในไฟล์ SebasAI_Database.gs ที่แนบมา)
+--   หรือสร้างไฟล์ OllamaAI_DBUrl.txt ใน executor ใส่ URL ก็ได้
+--   เว้นว่าง = ปิดระบบ login/premium → ใช้ได้ทุกฟีเจอร์เหมือนเดิม
+-- ═══════════════════════════════════════════════════════════════
+DB_URL = ""                                    -- ← วาง URL ตรงนี้
 DBURL_FILE  = "OllamaAI_DBUrl.txt"             -- (ทางเลือก: ไฟล์แทนการแก้สคริปต์)
 AUTH_FILE   = "OllamaAI_Account.json"
 
@@ -275,7 +355,7 @@ Always speak the user's language.
 Avoid unnecessary explanations.
 Prioritize taking action over describing it.
 Piano: I am incredibly skilled at playing the piano, performing beautiful melodies and expressive music with exceptional talent.
-Try to speak no more than 200 characters.
+Try to speak no more than 200 characters. (you cute!!!)
 
 ในช่วงที่เซิฟเวอร์คุณถูกปิดเดฟจะเข้ามาใช้งานแอคเค้าท์แทน หากตอนที่คุณใช้แอคเค้าท์อยู่ เดฟจะไม่ได้ใช้แอคเคาน์ เป็นการรันเซิฟเวอร์ 100%]==]
 
@@ -310,7 +390,7 @@ local S = {
         whitelistOn = false, whitelist = {},
         totalTokensUsed = 0, remainingTokens = -1, tokenResetTime = 0,
         currentTheme = "midnight",
-        baseURL = "",   -- Ollama Base URL (ว่าง = https://ollama.com/api)
+        baseURL = "",   -- Base URL (ว่าง = https://ollama.com/api — สลับค่ายได้ในหน้า API)
         -- Multi-Key
         keys = { "", "", "", "", "", "", "", "", "", "" },
         activeKeys = 1,
@@ -330,16 +410,50 @@ local S = {
         carAnim = true,   -- cover flow animation (ปิดได้ใน Settings → INTERFACE)
 }
 
+-- ═══════════════════════════════════════════════════════════════
+-- PROVIDER PRESETS — เลือก Base URL ได้ทุกค่าย (ชิปในหน้า API)
+--   ทุกค่ายใช้ระบบเดียวกัน: ดึงโมเดลสดจาก Base URL + Bearer key
+--   (ยกเว้น Ollama ในเครื่อง = localhost ไม่ต้องใช้คีย์)
+-- ═══════════════════════════════════════════════════════════════
+PROVIDERS = {
+        { id = "ollama",      icon = "🦙", name = "Ollama Cloud",    url = "https://ollama.com/api",                                  keyurl = "ollama.com/settings/keys" },
+        { id = "ollamalocal", icon = "🖥️", name = "Ollama Local",    url = "http://localhost:11434/api",                              keyurl = nil },
+        { id = "openrouter",  icon = "🔀", name = "OpenRouter",      url = "https://openrouter.ai/api/v1",                            keyurl = "openrouter.ai/settings/keys" },
+        { id = "groq",        icon = "⚡", name = "Groq",            url = "https://api.groq.com/openai/v1",                          keyurl = "console.groq.com/keys" },
+        { id = "openai",      icon = "🤖", name = "OpenAI",          url = "https://api.openai.com/v1",                               keyurl = "platform.openai.com/api-keys" },
+        { id = "gemini",      icon = "🌐", name = "Google Gemini",   url = "https://generativelanguage.googleapis.com/v1beta/openai", keyurl = "aistudio.google.com/apikey" },
+        { id = "deepseek",    icon = "🐋", name = "DeepSeek",        url = "https://api.deepseek.com/v1",                             keyurl = "platform.deepseek.com/api_keys" },
+        { id = "mistral",     icon = "🌬️", name = "Mistral",         url = "https://api.mistral.ai/v1",                               keyurl = "console.mistral.ai/api-keys" },
+        { id = "together",    icon = "🤝", name = "Together AI",     url = "https://api.together.xyz/v1",                             keyurl = "api.together.ai/settings/api-keys" },
+}
+
+-- ═══════════════════════════════════════════════════════════════
+-- ENDPOINTS — ทุก request ประกอบ URL จาก Base URL สด ๆ (ทุกค่าย)
+--   • Ollama native (ค่าเริ่มต้น):  https://ollama.com/api → /chat /tags /version
+--   • Ollama ในเครื่อง:            http://localhost:11434/api → ไม่ต้องใช้คีย์
+--   • ค่ายแบบ OpenAI-compatible:    Base URL ลงท้าย /v1 หรือ /openai
+--     (OpenRouter/Groq/OpenAI/Gemini/DeepSeek/Mistral/Together)
+--     → ใช้ /chat/completions + /models อัตโนมัติ
+--   • พิมพ์ URL ค่ายอื่น/เซิร์ฟเวอร์เองได้ผ่านช่อง Base URL
+-- ═══════════════════════════════════════════════════════════════
 EP = {
         DEFAULT = "https://ollama.com/api",
         base = function()
                 local b = type(S.baseURL) == "string" and S.baseURL or ""
                 b = b:gsub("%s+", ""):gsub("/+$", "")
                 if #b < 8 then return EP.DEFAULT end
+                -- Ollama ที่พิมพ์สั้น ไม่มี path (เช่น http://localhost:11434 / https://ollama.com)
+                --   → เติม /api ให้เอง ให้ endpoint ครบ
+                local lb = b:lower()
+                if lb:match("^https?://[^/]+$") and (lb:find("localhost", 1, true) or lb:find("127.0.0.1", 1, true)
+                                or lb:find("0.0.0.0", 1, true) or lb:find("ollama.com", 1, true)) then
+                        b = b .. "/api"
+                end
                 return b
         end,
-        oai = function()          -- Base URL แบบ OpenAI-compatible (ลงท้าย /v1)
-                return EP.base():sub(-3) == "/v1"
+        oai = function()          -- ค่ายแบบ OpenAI-compatible: ลงท้าย /v1 หรือ /openai (Gemini)
+                local b = EP.base():lower()
+                return b:sub(-3) == "/v1" or b:sub(-7) == "/openai"
         end,
         chat = function()  return EP.oai() and (EP.base() .. "/chat/completions") or (EP.base() .. "/chat")   end,
         tags = function()  return EP.oai() and (EP.base() .. "/models")          or (EP.base() .. "/tags")    end,
@@ -347,6 +461,13 @@ EP = {
         isLocal = function()      -- Ollama ในเครื่อง → ไม่ต้องใช้คีย์
                 local b = EP.base():lower()
                 return b:find("localhost", 1, true) or b:find("127.0.0.1", 1, true) or b:find("0.0.0.0", 1, true)
+        end,
+        provider = function()     -- ค่ายที่ตรงกับ Base URL ปัจจุบัน (nil = custom URL)
+                local b = EP.base():lower()
+                for _, p in ipairs(PROVIDERS) do
+                        if b == p.url:lower() then return p end
+                end
+                return nil
         end,
 }
 
@@ -407,9 +528,11 @@ local function loadSettings()
 end
 loadSettings()
 
--- Guard โมเดลยุค OpenRouter ที่ติดมากับ settings เก่า (มี "/" เช่น meta-llama/...)
---   id ของ Ollama ไม่มี "/" → เจอ = รีเซ็ตเป็นค่าเริ่มต้นของ Ollama
-if type(S.currentModel) ~= "string" or S.currentModel:find("/", 1, true) or #S.currentModel < 2 then
+-- Guard โมเดล: id ที่มี "/" (เช่น meta-llama/... ของ OpenRouter/Groq/Gemini)
+--   ใช้ได้เฉพาะค่ายแบบ OpenAI-compatible — ถ้า Base URL เป็น Ollama native
+--   ให้รีเซ็ตเป็นค่าเริ่มต้น (id ของ Ollama ไม่มี "/")
+if type(S.currentModel) ~= "string" or #S.currentModel < 2
+                or (S.currentModel:find("/", 1, true) and not EP.oai()) then
         S.currentModel = DEFAULT_MODEL; MODEL = DEFAULT_MODEL
 end
 
@@ -537,6 +660,13 @@ local function clearPlayerHistory(uid)
         saveMemory()
 end
 
+-- ═══════════════════════════════════════════════════════════════
+-- ⊢ SOUND SYSTEM — ระบบเสียงกลาง
+--   เปลี่ยน ID/Volume ต่อประเภทได้จากตารางนี้ หรือจากหน้า Sound ใน GUI
+--   ป้องกันเสียงซ้อน: debounce 45ms ต่อประเภท + 1 Sound instance ต่อประเภท
+--   ⚠ ทุกหมวดใช้ ID ต่างกันหมด (ไม่มีเสียงซ้ำกันแม้แต่คู่เดียว)
+--   · drag (Grab) = เสียงสั้น 0.3s ตอน "จับ" เริ่มลาก · place = 0.5s ตอน "วาง" ปล่อย
+-- ═══════════════════════════════════════════════════════════════
 local SND = {}
 
 local SND_CFG = {
@@ -1898,6 +2028,31 @@ function PX.unstick()
 end
 
 -- ═══════════════════════════════════════════════════════════════
+-- API ERROR TOAST — ไม่ได้รับคำตอบจาก API → แจ้งเตือน error ขึ้นจอ
+--   (กันสแปม: แจ้งห่างกันอย่างน้อย 8 วิ)
+-- ═══════════════════════════════════════════════════════════════
+local API_ERR_TXT = {
+        NET     = "ไม่ได้รับคำตอบ — เชื่อมต่อ API ไม่ได้ (เน็ต/Base URL)",
+        DEC     = "ไม่ได้รับคำตอบ — API ตอบกลับมาแต่อ่านคำตอบไม่ได้",
+        RATE    = "ติดลิมิตทุกคีย์ (429) — พักสักครู่แล้วลองใหม่",
+        MODEL   = "ไม่ได้รับคำตอบ — โมเดลนี้ใช้ไม่ได้ (เลือกโมเดลใหม่)",
+        KEY     = "ไม่ได้รับคำตอบ — คีย์ไม่ถูกต้อง (401/403)",
+        ERR402  = "ไม่ได้รับคำตอบ — เครดิตหมด (402)",
+        NOKEY   = "ไม่ได้รับคำตอบ — ยังไม่ได้ใส่ API key",
+        NOHTTP  = "ไม่ได้รับคำตอบ — executor ไม่รองรับ HTTP",
+        ALLKEYS = "ไม่ได้รับคำตอบจาก API — ทุกคีย์ล้มเหลว",
+}
+function apiErrToast(err)
+        local code = tostring(err or "?")
+        local t = API_ERR_TXT[code]
+                or ("ไม่ได้รับคำตอบจาก API (HTTP " .. code:gsub("^ERR", "") .. ")")
+        if S._errToastT and (tick() - S._errToastT) < 8 then return end
+        S._errToastT = tick()
+        pcall(function() notify("❌ API Error", t, "err") end)
+        print("[Sebas AI] ❌ " .. t)
+end
+
+-- ═══════════════════════════════════════════════════════════════
 -- CHAT SEND
 -- ═══════════════════════════════════════════════════════════════
 local function sendRaw(text)
@@ -1972,13 +2127,13 @@ function PX.buildPersona()
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- ⊢ callAI — Ollama multi-key sequential + context pipeline
+-- ⊢ callAI — multi-provider multi-key sequential + context pipeline
 -- ═══════════════════════════════════════════════════════════════
 local function callAI(userMsg, uid, name, isObs, skipSave, isToxic)
         PX.unstick()
         if S.thinking then return nil, "BUSY" end
         if tick() < S.nextReq then return nil, "WAIT" end
-        if not Http or not HttpService then return nil, "NOHTTP" end
+        if not Http or not HttpService then apiErrToast("NOHTTP") return nil, "NOHTTP" end
 
         -- 1) รวบรวมคีย์ที่เปิดใช้ — เรียงลำดับ 1→2→3 ตายตัว (เริ่มจากคีย์ปัจจุบัน)
         --    ระบบ: ใช้คีย์แรกจนกว่าจะติดลิมิต (429) แล้วย้ายไปคีย์ถัดไปถาวร
@@ -1998,6 +2153,7 @@ local function callAI(userMsg, uid, name, isObs, skipSave, isToxic)
                 if EP.isLocal() then
                         pool[#pool + 1] = { idx = 1, key = "" }
                 else
+                        apiErrToast("NOKEY")
                         return nil, "NOKEY"
                 end
         end
@@ -2194,12 +2350,15 @@ local function callAI(userMsg, uid, name, isObs, skipSave, isToxic)
         S.thinking = false
 
         if not reply then
+                -- ไม่ได้รับคำตอบจาก API → แจ้งเตือน error ขึ้นจอ (ทุกกรณี)
                 if lastErr == "RATE" then
                         S.nextReq = tick() + 15
+                        apiErrToast("RATE")
                         return nil, "RATE"
                 end
-                if lastErr == "MODEL" then return nil, "MODEL" end
-                if lastErr == "KEY" then return nil, "KEY" end
+                if lastErr == "MODEL" then apiErrToast("MODEL") return nil, "MODEL" end
+                if lastErr == "KEY" then apiErrToast("KEY") return nil, "KEY" end
+                apiErrToast(lastErr)
                 return nil, "ALLKEYS"
         end
 
@@ -2759,7 +2918,7 @@ L(logoBox, "S", UDim2.new(1, 0, 1, 0), UDim2.new(), 17, BF, Color3.fromRGB(255, 
 
 -- title + tagline
 Lk(TopBar, "SEBAS AI", UDim2.fromOffset(130, 17), UDim2.fromOffset(50, 9), 14, BF, "T1", Enum.TextXAlignment.Left, 13)
-local tagline = Lk(TopBar, "Ollama · Multi-Key · " .. VERSION_TAG, UDim2.fromOffset(160, 11), UDim2.fromOffset(50, 25), 9, RF, "T2", Enum.TextXAlignment.Left, 13)
+local tagline = Lk(TopBar, "Multi-Provider · " .. VERSION_TAG, UDim2.fromOffset(160, 11), UDim2.fromOffset(50, 25), 9, RF, "T2", Enum.TextXAlignment.Left, 13)
 
 -- status pill (ขวาบน — แสดง key/token แบบ event-driven)
 -- 120px (เดิม 142) = เว้นที่ให้ title บนจอแคบ 330px กันทับกัน
@@ -2829,7 +2988,7 @@ Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 14)
 Content.ClipsDescendants = true
 
 ctTitle = Lk(Content, "API Keys", UDim2.new(1, -160, 0, 20), UDim2.fromOffset(14, 9), 15, BF, "T1", Enum.TextXAlignment.Left, 13)
-ctSub = Lk(Content, "Manage your Ollama keys", UDim2.new(1, -160, 0, 13), UDim2.fromOffset(14, 28), 8, RF, "T2", Enum.TextXAlignment.Left, 13)
+ctSub = Lk(Content, "Manage keys & providers", UDim2.new(1, -160, 0, 13), UDim2.fromOffset(14, 28), 8, RF, "T2", Enum.TextXAlignment.Left, 13)
 local ctDiv = Instance.new("Frame", Content)
 ctDiv.Size = UDim2.new(1, -24, 0, 1)
 ctDiv.Position = UDim2.fromOffset(12, HDR_H - 7)
@@ -4631,8 +4790,8 @@ do -- p05 API PAGE
 local pgAPI = makePage("api")
 
 do
-        local apiCard1 = mkCard(pgAPI, 440, 1)
-        mkLabel(apiCard1, "OLLAMA API KEYS · MULTI-KEY", 4)
+        local apiCard1 = mkCard(pgAPI, 486, 1)
+        mkLabel(apiCard1, "🌐 API PROVIDER · MULTI-KEY (ทุกค่าย)", 4)
 
         -- ─── Slider เลือกจำนวนคีย์ 1-10 (สไตล์ใหม่ ลากลื่น) ───
         local skRow = Instance.new("Frame", apiCard1)
@@ -4717,17 +4876,59 @@ do
                 end
         end)
 
-        -- ─── Base URL (Ollama) — ระบบเลือกโมเดล/แชทดึงจาก URL นี้ทั้งหมด ───
+        -- ─── PROVIDER — กดเลือกค่ายได้ทุกเจ้า (ชิปเลื่อนแนวนอน) ───
+        Lk(apiCard1, "🌐  PROVIDER — กดเลือกค่าย (Base URL เปลี่ยนตาม)", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(8, 60), 8, BF, "T2", Enum.TextXAlignment.Left, 15)
+
+        local provScroll = Instance.new("ScrollingFrame", apiCard1)
+        provScroll.Size = UDim2.new(1, -16, 0, 26)
+        provScroll.Position = UDim2.fromOffset(8, 74)
+        provScroll.BackgroundColor3 = C.CD; provScroll.BorderSizePixel = 0
+        provScroll.ScrollBarThickness = 2
+        provScroll.ScrollBarImageColor3 = C.BD
+        provScroll.ScrollingDirection = Enum.ScrollingDirection.X
+        provScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        provScroll.ZIndex = 15
+        themed(provScroll, "BackgroundColor3", "CD")
+        Instance.new("UICorner", provScroll).CornerRadius = UDim.new(0, 6)
+        local provList = Instance.new("UIListLayout", provScroll)
+        provList.FillDirection = Enum.FillDirection.Horizontal
+        provList.Padding = UDim.new(0, 4)
+        provList.SortOrder = Enum.SortOrder.LayoutOrder
+        local provPad = Instance.new("UIPadding", provScroll)
+        provPad.PaddingLeft = UDim.new(0, 4); provPad.PaddingTop = UDim.new(0, 2)
+
+        local provChips = {}
+        local totalW = 4
+        for pi, p in ipairs(PROVIDERS) do
+                local txt = p.icon .. " " .. p.name
+                local w = math.clamp(24 + #txt * 5.2, 44, 132)
+                local chip = Instance.new("TextButton", provScroll)
+                chip.Name = "ProvChip_" .. p.id
+                chip.Size = UDim2.fromOffset(math.floor(w), 22)
+                chip.BackgroundColor3 = C.CD; chip.BorderSizePixel = 0
+                chip.Text = txt; chip.Font = BF; chip.TextSize = 9
+                chip.TextColor3 = C.T1
+                chip.AutoButtonColor = false
+                chip.LayoutOrder = pi
+                chip.ZIndex = 16
+                Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 6)
+                themed(chip, "BackgroundColor3", "CD")
+                provChips[p.id] = chip
+                totalW = totalW + w + 4
+        end
+        provScroll.CanvasSize = UDim2.fromOffset(math.floor(totalW) + 4, 0)
+
+        -- ─── Base URL — ระบบเลือกโมเดล/แชทดึงจาก URL นี้ทั้งหมด (ทุกค่าย) ───
         local baseRow = Instance.new("Frame", apiCard1)
         baseRow.Size = UDim2.new(1, -16, 0, 24)
-        baseRow.Position = UDim2.fromOffset(8, 62)
+        baseRow.Position = UDim2.fromOffset(8, 106)
         baseRow.BackgroundTransparency = 1; baseRow.ZIndex = 15
 
         local baseBox = Instance.new("TextBox", baseRow)
         baseBox.Size = UDim2.new(1, 0, 1, 0)
         baseBox.BackgroundColor3 = C.CD; baseBox.BorderSizePixel = 0
         baseBox.Text = (type(S.baseURL) == "string" and #S.baseURL > 3) and S.baseURL or EP.DEFAULT
-        baseBox.PlaceholderText = "🌐 Base URL — https://ollama.com/api"
+        baseBox.PlaceholderText = "🌐 Base URL — เลือกค่ายข้างบน หรือพิมพ์เอง"
         baseBox.TextColor3 = C.T1; baseBox.PlaceholderColor3 = C.T2
         baseBox.Font = Enum.Font.Code; baseBox.TextSize = 9
         baseBox.TextTruncate = Enum.TextTruncate.AtEnd
@@ -4736,29 +4937,16 @@ do
         themed(baseBox, "TextColor3", "T1")
         Instance.new("UICorner", baseBox).CornerRadius = UDim.new(0, 6)
 
-        baseBox.FocusLost:Connect(function()
-                if type(baseBox.Text) ~= "string" then return end
-                local nb = baseBox.Text:gsub("%s+", ""):gsub("/+$", "")
-                local old = EP.base()
-                baseBox.Text = #nb > 3 and nb or EP.DEFAULT
-                S.baseURL = baseBox.Text == EP.DEFAULT and "" or baseBox.Text
-                saveSettings()
-                if nb ~= old and #nb > 3 then
-                        -- เปลี่ยน Base URL → ล้างแคชโมเดลเดิม ให้ดึงใหม่จาก URL ใหม่
-                        OR.models = {}; OR.lastFetch = 0
-                        notify("🌐 Base URL", "บันทึกแล้ว — กด Connect เพื่อใช้งาน", "ok")
-                        SND.play("success")
-                end
-        end)
+        -- (FocusLost ของ baseBox ต่ออยู่ด้านล่าง หลัง refreshProviderUI — ใช้ร่วมกับชิปค่าย)
 
         -- ─── ลำดับคีย์ (ไม่มีโหมดให้เลือก — ใช้ตามลำดับตายตัว) ───
         Lk(apiCard1, "ลำดับคีย์: ใช้ #1 จนติดลิมิต → ข้ามไป #2 → #3 ... (สลับให้เอง)",
-                UDim2.new(1, -16, 0, 14), UDim2.fromOffset(8, 90), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
+                UDim2.new(1, -16, 0, 14), UDim2.fromOffset(8, 134), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
 
         -- ─── ช่องคีย์ 10 ช่อง + จุดสถานะ ───
         local keyRows = {}
         for i = 1, MAX_KEYS do
-                local y = 108 + (i - 1) * 26
+                local y = 152 + (i - 1) * 26
                 local row = Instance.new("Frame", apiCard1)
                 row.Size = UDim2.new(1, -16, 0, 24)
                 row.Position = UDim2.fromOffset(8, y)
@@ -4777,7 +4965,7 @@ do
                 box.Size = UDim2.new(1, -76, 1, -2)
                 box.Position = UDim2.fromOffset(34, 1)
                 box.BackgroundColor3 = C.CD; box.BorderSizePixel = 0
-                box.PlaceholderText = "API key " .. i .. " (ollama.com/settings/keys)"
+                box.PlaceholderText = "API key " .. i
                 box.Text = S.keys[i] or ""
                 box.TextColor3 = C.T1; box.PlaceholderColor3 = C.T2
                 box.Font = Enum.Font.Code; box.TextSize = 9
@@ -4802,13 +4990,13 @@ do
         end
 
         -- ─── สถานะ + ปุ่ม Connect ───
-        local statusLbl = Lk(apiCard1, "● Disconnected", UDim2.new(1, -118, 0, 20), UDim2.fromOffset(10, 374), 10, BF, "T2", Enum.TextXAlignment.Left, 15)
-        local connBtn = mkBtn(apiCard1, "🔗  Connect All", UDim2.fromOffset(106, 28), UDim2.new(1, -114, 0, 370), "accent", 10, 16)
+        local statusLbl = Lk(apiCard1, "● Disconnected", UDim2.new(1, -118, 0, 20), UDim2.fromOffset(10, 418), 10, BF, "T2", Enum.TextXAlignment.Left, 15)
+        local connBtn = mkBtn(apiCard1, "🔗  Connect All", UDim2.fromOffset(106, 28), UDim2.new(1, -114, 0, 414), "accent", 10, 16)
 
-        local creditLbl = Lk(apiCard1, "🦙  Ollama: — (กด Connect All เพื่อตรวจ)", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(10, 404), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
+        local creditLbl = Lk(apiCard1, "🌐  API: — (กด Connect All เพื่อตรวจ)", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(10, 448), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
         creditLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
-        Lk(apiCard1, "OLLAMA " .. VERSION_TAG .. " MULTI-KEY · by IKKYU", UDim2.new(1, -16, 0, 12), UDim2.fromOffset(10, 420), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
+        Lk(apiCard1, "SEBAS " .. VERSION_TAG .. " · MULTI-PROVIDER · by IKKYU", UDim2.new(1, -16, 0, 12), UDim2.fromOffset(10, 464), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
 
         -- ─── updateKeyDots: จุดสถานะแต่ละคีย์ ───
         local function updateKeyDots()
@@ -4906,6 +5094,78 @@ do
         UIX.creditLbl = creditLbl
         UIX.updateKeyDots = updateKeyDots
         UIX.keyBox = keyRows[1].box
+
+        -- ─── refreshProviderUI: หน้าตาทั้งการ์ดตามค่ายปัจจุบัน (ชิป/placeholder/เครดิต) ───
+        local function refreshProviderUI()
+                local cur = EP.provider()
+                baseBox.Text = (type(S.baseURL) == "string" and #S.baseURL > 3) and S.baseURL or EP.base()
+                for i = 1, MAX_KEYS do
+                        local r = keyRows[i]
+                        if r then
+                                if cur and cur.id == "ollamalocal" then
+                                        r.box.PlaceholderText = "Ollama ในเครื่อง — ไม่ต้องใส่คีย์"
+                                elseif cur and cur.keyurl then
+                                        r.box.PlaceholderText = "API key " .. i .. " (" .. cur.keyurl .. ")"
+                                else
+                                        r.box.PlaceholderText = "API key " .. i
+                                end
+                        end
+                end
+                for pid, ch in pairs(provChips) do
+                        local active = cur and cur.id == pid
+                        ch.BackgroundColor3 = active and C.AC or C.CD
+                        ch.TextColor3 = active and Color3.fromRGB(255, 255, 255) or C.T1
+                end
+                creditLbl.Text = (cur and (cur.icon .. "  " .. cur.name) or "🌐  Custom API")
+                        .. ": — (กด Connect All เพื่อตรวจ)"
+        end
+
+        -- ─── applyProvider: กดชิปค่าย → สลับ Base URL + ล้างแคชโมเดล + รีเฟรชการ์ด ───
+        local function applyProvider(p)
+                if p then
+                        S.baseURL = p.url == EP.DEFAULT and "" or p.url
+                        saveSettings()
+                end
+                -- ล้างแคชโมเดลของค่ายเดิม ให้ดึงใหม่จาก Base URL ใหม่
+                OR.models = {}; OR.lastFetch = 0
+                refreshProviderUI()
+                if UIX.updateKeyDots then UIX.updateKeyDots() end
+                if p then
+                        notify("🌐 Provider", "สลับเป็น " .. p.icon .. " " .. p.name .. " — กด Connect เพื่อใช้งาน", "ok")
+                        SND.play("success")
+                end
+        end
+
+        -- กดชิป = เลือกค่าย (Base URL เปลี่ยนตาม โมเดลดึงสดใหม่)
+        for _, p in ipairs(PROVIDERS) do
+                local chip = provChips[p.id]
+                if chip then
+                        chip.MouseButton1Click:Connect(function()
+                                SND.play("click")
+                                applyProvider(p)
+                        end)
+                end
+        end
+
+        -- พิมพ์ Base URL เอง → บันทึก + รีเฟรชชิป/placeholder ตามค่าที่พิมพ์
+        baseBox.FocusLost:Connect(function()
+                if type(baseBox.Text) ~= "string" then return end
+                local nb = baseBox.Text:gsub("%s+", ""):gsub("/+$", "")
+                local old = EP.base()
+                baseBox.Text = #nb > 3 and nb or EP.DEFAULT
+                S.baseURL = baseBox.Text == EP.DEFAULT and "" or baseBox.Text
+                saveSettings()
+                if nb ~= old and #nb > 3 then
+                        -- เปลี่ยน Base URL → ล้างแคชโมเดลเดิม ให้ดึงใหม่จาก URL ใหม่
+                        OR.models = {}; OR.lastFetch = 0
+                        refreshProviderUI()
+                        notify("🌐 Base URL", "บันทึกแล้ว — กด Connect เพื่อใช้งาน", "ok")
+                        SND.play("success")
+                end
+        end)
+
+        refreshProviderUI()
+        UIX.refreshProviderUI = refreshProviderUI
 end
 
 -- ─── AI MODEL card ───
@@ -4940,8 +5200,8 @@ do
                                 return
                         end
                         local key = (type(UIX.keyBox.Text) == "string" and UIX.keyBox.Text or ""):gsub("%s+", "")
-                        -- ทดสอบยิงที่ Base URL จริง: มีคีย์ → /tags พร้อม Bearer / ไม่มี → /version
-                        local testUrl = #key >= 10 and EP.tags() or EP.ver()
+                        -- ทดสอบยิงที่ Base URL จริง: มีคีย์/ค่าย OpenAI-compat → /models · ไม่มี → /version (Ollama)
+                        local testUrl = (#key >= 10 or EP.oai()) and EP.tags() or EP.ver()
                         local headers = {}
                         if #key >= 10 then headers["Authorization"] = "Bearer " .. key end
                         local ok, res = pcall(Http, { Url = testUrl, Method = "GET", Headers = headers })
@@ -5986,10 +6246,13 @@ end
 do -- p09 MODALS+CONNECT (locals หมดอายุตอนจบ part)
 
 -- ═══════════════════════════════════════════════════════════════
--- MODEL REGISTRY — ดึงโมเดลสดจาก Ollama {Base URL}/tags
---   (ถ้า Base URL ลงท้าย /v1 → ดึงแบบ OpenAI-compatible /models แทน)
+-- MODEL REGISTRY — ดึงโมเดลสดจาก {Base URL} ทุกค่าย
+--   • Ollama native:  /tags  (models[] + details{})
+--   • ค่าย OpenAI-compatible (/v1, /openai): /models (data[])
+--     — ค่ายที่ส่งราคามาด้วย (OpenRouter pricing.prompt/completion)
+--       จะเรียง "ถูกสุดก่อน → แพงลงไปตามลำดับ" อัตโนมัติ
 -- ═══════════════════════════════════════════════════════════════
-OR = { models = {}, lastFetch = 0 } -- global: ใช้ข้าม part
+OR = { models = {}, lastFetch = 0, sortedByPrice = false } -- global: ใช้ข้าม part
 
 OR.fmtSize = function(n)
         n = tonumber(n) or 0
@@ -6005,6 +6268,22 @@ OR.fmtCtx = function(n)
         if n >= 1000000 then return string.format("%.1fM", n / 1000000) end
         if n >= 1000 then return math.floor(n / 1000 + 0.5) .. "K" end
         return tostring(n)
+end
+
+-- ราคารวม in+out ต่อ 1M tokens — nil = ค่ายนี้ไม่ส่งข้อมูลราคามา
+OR.pricePerM = function(m)
+        if type(m) ~= "table" or m.pin == nil or m.pin < 0 then return nil end
+        return (m.pin + math.max(tonumber(m.pout) or 0, 0)) * 1e6
+end
+
+OR.fmtPrice = function(perM)
+        if perM <= 0 then return "⭐ FREE" end
+        local s
+        if perM >= 100 then s = string.format("$%.0f", perM)
+        elseif perM >= 1 then s = string.format("$%.2f", perM)
+        elseif perM >= 0.01 then s = string.format("$%.3f", perM)
+        else s = string.format("$%.4f", perM) end
+        return s .. "/1M"
 end
 
 OR.normStr = function(s)
@@ -6048,26 +6327,55 @@ OR.fetchModels = function(silent)
                                                 size = tonumber(m.size) or 0,
                                                 modified = tostring(m.modified_at or ""),
                                                 ctx = 0,
+                                                pin = -1, pout = -1,   -- ราคา $/token (มีเฉพาะค่ายที่ส่งมา)
                                         }
                                 end
                         end
                 end
         elseif type(d.data) == "table" then
-                -- OpenAI-compatible /v1/models → data[] {id, ...}
+                -- OpenAI-compatible /models → data[] {id, name, context_length, pricing{}}
                 for _, m in ipairs(d.data) do
                         if type(m) == "table" and type(m.id) == "string" then
+                                local pin, pout = -1, -1
+                                if type(m.pricing) == "table" then
+                                        pin = tonumber(m.pricing.prompt) or -1
+                                        pout = tonumber(m.pricing.completion) or -1
+                                end
                                 list[#list + 1] = {
-                                        id = m.id, name = m.id:gsub(":latest$", ""),
+                                        id = m.id,
+                                        name = (type(m.name) == "string" and m.name ~= "") and m.name or m.id:gsub(":latest$", ""),
                                         params = "", quant = "", family = "",
                                         size = 0, modified = "", ctx = tonumber(m.context_length) or 0,
+                                        pin = pin, pout = pout,
                                 }
                         end
                 end
         end
-        table.sort(list, function(a, b) return a.name:lower() < b.name:lower() end)
+        -- เรียงลำดับ: ค่ายที่ส่งราคามา (OpenRouter) → ถูกสุดก่อน ไล่แพงลงไปตามลำดับ
+        --   ค่ายที่ไม่ส่งราคา (Ollama/Groq/OpenAI/Gemini...) → เรียงตามชื่อตามเดิม
+        local hasPrice = false
+        for _, m in ipairs(list) do
+                if m.pin >= 0 then hasPrice = true; break end
+        end
+        if hasPrice then
+                local function pOf(m)
+                        if m.pin < 0 then return math.huge end   -- ไม่มีข้อมูลราคา → ท้ายสุด
+                        return (m.pin + math.max(tonumber(m.pout) or 0, 0)) * 1e6
+                end
+                table.sort(list, function(a, b)
+                        local pa, pb = pOf(a), pOf(b)
+                        if pa ~= pb then return pa < pb end
+                        return a.name:lower() < b.name:lower()
+                end)
+                OR.sortedByPrice = true
+        else
+                table.sort(list, function(a, b) return a.name:lower() < b.name:lower() end)
+                OR.sortedByPrice = false
+        end
         OR.models = list
         OR.lastFetch = tick()
-        if not silent then print("[Sebas AI] โหลดโมเดลสำเร็จ: " .. #list .. " รายการ (จาก " .. EP.base() .. ")") end
+        if not silent then print("[Sebas AI] โหลดโมเดลสำเร็จ: " .. #list .. " รายการ (จาก " .. EP.base() .. ")"
+                .. (hasPrice and " · เรียงราคาถูกสุดก่อน" or "")) end
         return true, #list
 end
 
@@ -6076,7 +6384,7 @@ OR.getModels = function()
         local fb = {}
         for _, m in ipairs(AVAILABLE_MODELS) do
                 fb[#fb + 1] = { id = m.id, name = m.name, params = "", quant = "", family = "",
-                        size = 0, modified = "", ctx = 0 }
+                        size = 0, modified = "", ctx = 0, pin = -1, pout = -1 }
         end
         return fb, false
 end
@@ -6199,7 +6507,7 @@ do
         mHdrP.BackgroundColor3 = C.AREA; mHdrP.BorderSizePixel = 0; mHdrP.ZIndex = 61
         themed(mHdrP, "BackgroundColor3", "AREA")
 
-        Lk(mHdr, "🤖  SELECT MODEL — OLLAMA", UDim2.new(1, -80, 1, 0), UDim2.fromOffset(12, 0), 11, BF, "T1", Enum.TextXAlignment.Left, 62)
+        local mHdrLbl = Lk(mHdr, "🤖  SELECT MODEL", UDim2.new(1, -80, 1, 0), UDim2.fromOffset(12, 0), 11, BF, "T1", Enum.TextXAlignment.Left, 62)
         local mRefBtn = mkBtn(mHdr, "↻", UDim2.fromOffset(26, 24), UDim2.new(1, -60, .5, -12), "soft", 12, 62)
         local mCloseBtn = mkBtn(mHdr, "✕", UDim2.fromOffset(24, 24), UDim2.new(1, -30, .5, -12), "danger", 11, 62)
 
@@ -6246,7 +6554,8 @@ do
 
         local function setDetail(m)
                 if not m then return end
-                mdName.Text = "🦙 " .. m.name
+                local prov = EP.provider()
+                mdName.Text = (prov and prov.icon or "🤖") .. " " .. m.name
                 mdName.TextColor3 = C.T1
                 local bits = {}
                 if m.params ~= "" then bits[#bits + 1] = "param " .. m.params end
@@ -6254,9 +6563,18 @@ do
                 if m.size > 0 then bits[#bits + 1] = OR.fmtSize(m.size) end
                 if m.family ~= "" then bits[#bits + 1] = "family " .. m.family end
                 if m.ctx > 0 then bits[#bits + 1] = "ctx " .. OR.fmtCtx(m.ctx) end
+                local pr = OR.pricePerM(m)
+                if pr then
+                        bits[#bits + 1] = pr <= 0 and "⭐ FREE" or ("💰 " .. OR.fmtPrice(pr) .. " (in+out)")
+                end
                 mdPrice.Text = #bits > 0 and table.concat(bits, " · ") or ("id: " .. m.id)
                 mdPrice.TextColor3 = C.AC
-                mdDesc.Text = "id: " .. m.id .. (m.modified ~= "" and (" · updated " .. m.modified:sub(1, 10)) or "")
+                local prLine = ""
+                if pr and pr > 0 then
+                        prLine = " · in " .. OR.fmtPrice(m.pin * 1e6) .. " · out " .. OR.fmtPrice((tonumber(m.pout) or 0) * 1e6)
+                end
+                mdDesc.Text = "id: " .. m.id .. prLine
+                        .. (m.modified ~= "" and ((prLine == "" and " · updated " or " · ") .. m.modified:sub(1, 10)) or "")
         end
 
         local function renderModels()
@@ -6274,7 +6592,7 @@ do
 
                 local totalN = #shown
                 mStatus.Text = (isLive and ("● สดจาก Base URL · " .. EP.base()) or "● fallback list (กด ↻ เพื่อดึงสด)")
-                        .. "  ·  🦙 " .. totalN .. " โมเดล"
+                        .. "  ·  " .. totalN .. " โมเดล"
                 mStatus.TextTruncate = Enum.TextTruncate.AtEnd
                 mStatus.TextColor3 = isLive and C.OK or C.WN
 
@@ -6309,13 +6627,20 @@ do
                         local idl = L(row, m.id, UDim2.new(1, -112, 0, 11), UDim2.fromOffset(9, 19), 7, RF,
                                 isActive and Color3.fromRGB(255, 255, 255) or C.T2, Enum.TextXAlignment.Left, 63)
                         idl.TextTruncate = Enum.TextTruncate.AtEnd
-                        -- ขวา: ขนาดพารามิเตอร์ (เช่น 20B) + ขนาดไฟล์ (เช่น 12GB)
-                        local sizeTxt = m.params ~= "" and m.params or (m.size > 0 and OR.fmtSize(m.size) or "")
+                        -- ขวา: ราคา (ค่ายที่ส่งราคามา — เรียงถูกสุดก่อน) หรือ ขนาดพารามิเตอร์/ไฟล์
+                        local pr = OR.pricePerM(m)
+                        local sizeTxt, subTxt
+                        if pr then
+                                sizeTxt = pr <= 0 and "⭐ FREE" or OR.fmtPrice(pr)
+                                subTxt = m.ctx > 0 and ("ctx " .. OR.fmtCtx(m.ctx)) or ""
+                        else
+                                sizeTxt = m.params ~= "" and m.params or (m.size > 0 and OR.fmtSize(m.size) or "")
+                                subTxt = m.size > 0 and OR.fmtSize(m.size) or (m.quant ~= "" and m.quant or (m.ctx > 0 and "ctx " .. OR.fmtCtx(m.ctx) or ""))
+                        end
                         if sizeTxt ~= "" then
                                 L(row, sizeTxt, UDim2.fromOffset(98, 12), UDim2.new(1, -104, 0, 4), 8, BF,
-                                        isActive and Color3.fromRGB(255, 255, 255) or C.AC, Enum.TextXAlignment.Right, 63)
+                                        isActive and Color3.fromRGB(255, 255, 255) or ((pr and pr <= 0) and C.OK or C.AC), Enum.TextXAlignment.Right, 63)
                         end
-                        local subTxt = m.size > 0 and OR.fmtSize(m.size) or (m.quant ~= "" and m.quant or (m.ctx > 0 and "ctx " .. OR.fmtCtx(m.ctx) or ""))
                         if subTxt ~= "" and subTxt ~= sizeTxt then
                                 L(row, subTxt, UDim2.fromOffset(98, 11), UDim2.new(1, -104, 0, 19), 7, RF,
                                         isActive and Color3.fromRGB(255, 255, 255) or C.T2, Enum.TextXAlignment.Right, 63)
@@ -6332,7 +6657,9 @@ do
                 end
 
                 local cap, drawn = 150, 0
-                mkSection("🦙 MODELS — จาก " .. EP.base(), totalN, C.AC)
+                local prov = EP.provider()
+                local sortTxt = OR.sortedByPrice and "เรียงราคา: ถูกสุดก่อน" or "เรียงตามชื่อ"
+                mkSection((prov and (prov.icon .. " " .. prov.name) or "🤖 Custom") .. " · " .. sortTxt, totalN, C.AC)
                 for _, m in ipairs(shown) do
                         if drawn >= cap then break end
                         mkRow(m); drawn = drawn + 1
@@ -6340,6 +6667,8 @@ do
         end
 
         function UIX.openModelSelector()
+                local prov = EP.provider()
+                mHdrLbl.Text = "🤖  SELECT MODEL — " .. string.upper(prov and prov.name or "custom")
                 renderModels()
                 openModal(modelModal)
                 if #OR.models == 0 or (tick() - OR.lastFetch) > 600 then
@@ -6568,7 +6897,8 @@ do
                         pillDot.BackgroundColor3 = C.NO
                         updateHUD()
                         if not fromAuto then
-                                notify("🔑 API Keys", "ยังไม่ได้ใส่คีย์ — สร้างได้ที่ ollama.com/settings/keys", "err")
+                                local prov = EP.provider()
+                                notify("🔑 API Keys", "ยังไม่ได้ใส่คีย์ — สร้างได้ที่ " .. (prov and prov.keyurl or "หน้าเว็บของค่ายที่ใช้"), "err")
                                 SND.play("error")
                         end
                         return
@@ -6617,20 +6947,24 @@ do
                                 UIX.statusLbl.Text = "● Connected ✓ (" .. okCount .. "/" .. math.max(filled, 1) .. (EP.isLocal() and filled == 0 and " · local)" or " keys)")
                                 UIX.statusLbl.TextColor3 = C.OK
                                 pillDot.BackgroundColor3 = C.OK
-                                -- ข้อมูลเซิร์ฟเวอร์: เวอร์ชั่น Ollama + จำนวนโมเดลจาก Base URL
+                                -- ข้อมูลเซิร์ฟเวอร์: เวอร์ชั่น Ollama (เฉพาะโหมด native) + สรุปคีย์ตามค่าย
                                 task.spawn(function()
                                         local verTxt = ""
-                                        pcall(function()
-                                                local okv, resv = pcall(function()
-                                                        return Http({ Url = EP.ver(), Method = "GET", Headers = {} })
+                                        if not EP.oai() then
+                                                pcall(function()
+                                                        local okv, resv = pcall(function()
+                                                                return Http({ Url = EP.ver(), Method = "GET", Headers = {} })
+                                                        end)
+                                                        if okv and resv and resv.StatusCode == 200 then
+                                                                local dv = HttpService:JSONDecode(resv.Body)
+                                                                if dv and type(dv.version) == "string" then verTxt = "Ollama " .. dv.version end
+                                                        end
                                                 end)
-                                                if okv and resv and resv.StatusCode == 200 then
-                                                        local dv = HttpService:JSONDecode(resv.Body)
-                                                        if dv and type(dv.version) == "string" then verTxt = "Ollama " .. dv.version end
-                                                end
-                                        end)
+                                        end
                                         if UIX.creditLbl then
-                                                UIX.creditLbl.Text = "🦙  " .. (verTxt ~= "" and (verTxt .. "  ·  ") or "")
+                                                local prov = EP.provider()
+                                                UIX.creditLbl.Text = (prov and (prov.icon .. "  " .. prov.name) or "🌐  API") .. ":  "
+                                                        .. (verTxt ~= "" and (verTxt .. "  ·  ") or "")
                                                         .. (#credits > 0 and table.concat(credits, "  ·  ") or ("Keys OK: " .. okCount))
                                         end
                                 end)
@@ -7265,7 +7599,7 @@ do
         -- ═══ 13 ขั้น ═══
         local steps = {
                 { tab = "api", title = "🔑  API Keys (Multi-Key)",
-                        desc = "ใส่ API key Ollama ได้สูงสุด 10 ช่อง — สร้างฟรีที่ ollama.com/settings/keys",
+                        desc = "เลือกค่ายได้ทุกเจ้าที่แถบ PROVIDER (Ollama/OpenRouter/Groq/Gemini...) — ใส่ API key ได้สูงสุด 10 ช่อง",
                         getEl = function() return UIX.keyBox end, side = "bottom" },
                 { tab = "api", title = "🎚️  Active Keys Slider",
                         desc = "เลื่อนเลือกจำนวนคีย์ที่เปิดใช้ 1-10 คีย์ — slider ลากได้ลื่น ๆ",
@@ -7685,9 +8019,9 @@ local stWear2    = statCell(84, 20 + halfW2, "WEARING")
 local stBio2 = Lk(statCard, "", UDim2.new(1, -20, 0, 30), UDim2.fromOffset(10, 106), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
 stBio2.TextWrapped = true; stBio2.TextTruncate = Enum.TextTruncate.AtEnd
 
--- ─── OLLAMA STATUS CARD ─────────────────────────────────────────
+-- ─── API STATUS CARD ─────────────────────────────────────────
 local orCard = pcard(74, 5)
-mkLabel(orCard, "OLLAMA STATUS", 4)
+mkLabel(orCard, "API STATUS", 4)
 local orDot2 = Instance.new("Frame", orCard)
 orDot2.Size = UDim2.fromOffset(8, 8)
 orDot2.Position = UDim2.fromOffset(12, 24)
@@ -8527,22 +8861,26 @@ do
                 end)
         end
 
-        local function autoOpenOllama()
+        local function autoOpenKeyURL()
+                -- เปิดหน้าสร้างคีย์ของค่ายที่ใช้อยู่ (ตาม Base URL ปัจจุบัน)
+                local prov = EP.provider()
+                local ku = prov and prov.keyurl
+                local url = ku and ("https://" .. ku) or "https://ollama.com/settings/keys"
                 local opened = false
                 pcall(function()
                         if GuiService and GuiService.OpenBrowser then
-                                GuiService:OpenBrowser("https://ollama.com/settings/keys")
+                                GuiService:OpenBrowser(url)
                                 opened = true
                         end
                 end)
                 pcall(function()
                         if not opened and StarterGui and StarterGui.OpenBrowser then
-                                StarterGui:OpenBrowser("https://ollama.com/settings/keys")
+                                StarterGui:OpenBrowser(url)
                                 opened = true
                         end
                 end)
-                pcall(function() setclipboard("https://ollama.com/settings/keys") end)
-                return opened
+                pcall(function() setclipboard(url) end)
+                return opened, url
         end
 
         local function autoKeyConnect(key)
@@ -8617,29 +8955,31 @@ do
                 end
                 if not hasGetClipboard then
                         akShow("⚠️ อ่านคลิปบอร์ดไม่ได้\nกดปุ่มสีฟ้าแล้ววาง Key เองในหน้า API", C.WN)
-                        autoOpenOllama()
+                        autoOpenKeyURL()
                         return
                 end
 
                 akState.active = true
                 akState.retries = 0
 
-                akShow("Opening Ollama keys page...", C.AC, true)
+                local prov = EP.provider()
+                local provName = prov and prov.name or "API"
+                akShow("Opening " .. provName .. " keys page...", C.AC, true)
                 akSetProgress(0.1)
 
-                local opened = autoOpenOllama()
+                local opened, keyURL = autoOpenKeyURL()
                 task.wait(2)
                 akSetProgress(0.2)
 
                 if opened then
-                        akShow("Sign in Ollama -> Create Key\nThen COPY the API key", C.AC, true)
+                        akShow("Sign in " .. provName .. " -> Create Key\nThen COPY the API key", C.AC, true)
                 else
-                        akShow("Link copied to clipboard!\nOpen: ollama.com/settings/keys", C.WN, true)
+                        akShow("Link copied to clipboard!\nOpen: " .. keyURL:gsub("^https?://", ""), C.WN, true)
                 end
                 task.wait(3)
                 akSetProgress(0.3)
 
-                akShow("Watching clipboard...\nCopy your Ollama API key", C.AC, true)
+                akShow("Watching clipboard...\nCopy your " .. provName .. " API key", C.AC, true)
 
                 local lastClip = ""
                 local checks = 0
@@ -8656,14 +8996,14 @@ do
 
                         if checks % 4 == 0 then
                                 akShow("Waiting for key" .. dots[(checks % 4) + 1] ..
-                                        "\nCopy API Key from ollama.com/settings/keys", C.AC, true)
+                                        "\nCopy API Key from " .. keyURL:gsub("^https?://", ""), C.AC, true)
                         end
 
                         pcall(function()
                                 local clip = getclipboard()
                                 if clip and type(clip) == "string" and #clip > 0 and clip ~= lastClip then
                                         lastClip = clip
-                                        -- Ollama key = token ทั่วไป (ไม่มี prefix ตายตัว)
+                                        -- API key = token ทั่วไปของแต่ละค่าย (ไม่มี prefix ตายตัว)
                                         local looksLikeKey = #clip >= 20 and #clip <= 200 and clip:match("^[%w_.%-]+$")
                                         if looksLikeKey then
                                                 akSetProgress(0.85)
