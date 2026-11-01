@@ -460,7 +460,8 @@ EP = {
         ver  = function()  return EP.base() .. "/version"                                            end,
         isLocal = function()      -- Ollama ในเครื่อง → ไม่ต้องใช้คีย์
                 local b = EP.base():lower()
-                return b:find("localhost", 1, true) or b:find("127.0.0.1", 1, true) or b:find("0.0.0.0", 1, true)
+                -- ⚠ ต้องคืน boolean เสมอ (find คืนตัวเลข — เคยถูกเอาไปใส่ .Visible ตรง ๆ แล้วพัง)
+                return (b:find("localhost", 1, true) or b:find("127.0.0.1", 1, true) or b:find("0.0.0.0", 1, true)) ~= nil
         end,
         provider = function()     -- ค่ายที่ตรงกับ Base URL ปัจจุบัน (nil = custom URL)
                 local b = EP.base():lower()
@@ -531,8 +532,10 @@ loadSettings()
 -- Guard โมเดล: id ที่มี "/" (เช่น meta-llama/... ของ OpenRouter/Groq/Gemini)
 --   ใช้ได้เฉพาะค่ายแบบ OpenAI-compatible — ถ้า Base URL เป็น Ollama native
 --   ให้รีเซ็ตเป็นค่าเริ่มต้น (id ของ Ollama ไม่มี "/")
+--   ⚠ ยกเว้น Local AI (localhost) — เจ้าของพิมพ์ชื่อโมเดลเองได้ บางเซิร์ฟเวอร์
+--   (LM Studio/llama.cpp) ใช้ id ที่มี "/" → เก็บไว้ตามที่พิมพ์
 if type(S.currentModel) ~= "string" or #S.currentModel < 2
-                or (S.currentModel:find("/", 1, true) and not EP.oai()) then
+                or (S.currentModel:find("/", 1, true) and not EP.oai() and not EP.isLocal()) then
         S.currentModel = DEFAULT_MODEL; MODEL = DEFAULT_MODEL
 end
 
@@ -5118,6 +5121,9 @@ do
                 end
                 creditLbl.Text = (cur and (cur.icon .. "  " .. cur.name) or "🌐  Custom API")
                         .. ": — (กด Connect All เพื่อตรวจ)"
+                -- แถว "พิมพ์ชื่อโมเดลเอง" (การ์ด AI MODEL) โชว์เฉพาะ Local AI
+                --   (การ์ดสร้างทีหลังฟังก์ชันนี้ — กันครั้งแรกที่ยังไม่มี)
+                if UIX.setLocalModelUI then UIX.setLocalModelUI() end
         end
 
         -- ─── applyProvider: กดชิปค่าย → สลับ Base URL + ล้างแคชโมเดล + รีเฟรชการ์ด ───
@@ -5181,6 +5187,68 @@ do
         UIX.currentModelLbl = currentModelLbl
         modelBtn.Name = "ModelBtn"
         UIX.modelBtn = modelBtn
+
+        -- ─── ✏️ พิมพ์ชื่อโมเดลเอง — แสดงเฉพาะโหมด Local AI ───
+        --   (Ollama เครื่องตัวเอง / LM Studio / llama.cpp ฯลฯ)
+        --   ใช้กรณีรายการโมเดลดึงมาไม่ครบ หรืออยากระบุชื่อเองเลย
+        local manRow = Instance.new("Frame", apiCard2)
+        manRow.Name = "ManualModelRow"
+        manRow.Size = UDim2.new(1, -16, 0, 30)
+        manRow.Position = UDim2.fromOffset(8, 74)
+        manRow.BackgroundTransparency = 1; manRow.ZIndex = 15
+        manRow.Visible = false
+
+        local manBox = Instance.new("TextBox", manRow)
+        manBox.Name = "ManualModelBox"
+        manBox.Size = UDim2.new(1, -68, 1, 0)
+        manBox.BackgroundColor3 = C.CD; manBox.BorderSizePixel = 0
+        manBox.PlaceholderText = "✏️  ชื่อโมเดลของ AI ในเครื่อง เช่น llama3.2"
+        manBox.Text = ""; manBox.TextColor3 = C.T1; manBox.PlaceholderColor3 = C.T2
+        manBox.Font = Enum.Font.Code; manBox.TextSize = 9
+        manBox.TextTruncate = Enum.TextTruncate.AtEnd
+        manBox.ZIndex = 16; manBox.ClearTextOnFocus = false
+        themed(manBox, "BackgroundColor3", "CD")
+        themed(manBox, "TextColor3", "T1")
+        Instance.new("UICorner", manBox).CornerRadius = UDim.new(0, 6)
+        Sk(manBox, "BD", 1, 0.45)
+
+        local manBtn = mkBtn(manRow, "✓  ใช้", UDim2.fromOffset(60, 30), UDim2.new(1, -60, 0, 0), "accent", 10, 16)
+        manBtn.Name = "ManualModelBtn"
+
+        -- ใช้ชื่อโมเดลที่พิมพ์เอง (แก้ S.currentModel + MODEL + บันทึก + แจ้งเตือน)
+        --   ใช้ร่วมกับ modal เลือกโมเดล (p09) — เรียกผ่าน UIX.applyManualModel
+        UIX.applyManualModel = function(t)
+                if type(t) ~= "string" then return false end
+                t = t:gsub("%s+", "")
+                if #t < 1 then
+                        notify("✏️ Model", "พิมพ์ชื่อโมเดลก่อนกดใช้", "warn")
+                        SND.play("error")
+                        return false
+                end
+                S.currentModel = t; MODEL = t
+                UIX.currentModelLbl.Text = "Current: " .. t
+                saveSettings()
+                notify("✏️ Model", "ใช้โมเดล (พิมพ์เอง): " .. t, "ok")
+                SND.play("success")
+                if updateHUD then pcall(updateHUD) end
+                return true
+        end
+
+        manBtn.MouseButton1Click:Connect(function()
+                UIX.applyManualModel(tostring(manBox.Text or ""))
+        end)
+        manBox.FocusLost:Connect(function(enter)
+                if enter then UIX.applyManualModel(tostring(manBox.Text or "")) end
+        end)
+
+        -- ซ่อน/โชว์แถวพิมพ์เองตามโหมด Local + ปรับความสูงการ์ดให้พอดี
+        UIX.setLocalModelUI = function()
+                local isL = EP.isLocal()
+                manRow.Visible = isL
+                apiCard2.Size = UDim2.new(1, -3, 0, isL and 120 or 86)
+                if isL then manBox.Text = S.currentModel end
+        end
+        UIX.setLocalModelUI()
 end
 
 -- ─── HTTP DEBUG + AUTO SETUP ───
@@ -6542,6 +6610,51 @@ do
         mList.Padding = UDim.new(0, 3)
         Instance.new("UIPadding", mScroll).PaddingTop = UDim.new(0, 3)
 
+        -- ─── ✏️ พิมพ์ชื่อโมเดลเอง — แสดงเฉพาะโหมด Local AI ───
+        --   (เซิร์ฟเวอร์ในเครื่อง: Ollama localhost / LM Studio / llama.cpp ฯลฯ)
+        --   ใช้ตอนรายการดึงมาไม่ตรง หรืออยากฟอร์สชื่อโมเดลเอง
+        local manRow = Instance.new("Frame", modelModal)
+        manRow.Name = "MManualRow"
+        manRow.Size = UDim2.new(1, -16, 0, 30)
+        manRow.Position = UDim2.fromOffset(8, 78)
+        manRow.BackgroundTransparency = 1
+        manRow.Visible = false
+        manRow.ZIndex = 62
+
+        local manBox = Instance.new("TextBox", manRow)
+        manBox.Name = "MManualBox"
+        manBox.Size = UDim2.new(1, -64, 1, -2)
+        manBox.Position = UDim2.fromOffset(0, 1)
+        manBox.BackgroundColor3 = C.CD; manBox.BorderSizePixel = 0
+        manBox.PlaceholderText = "✏️  พิมพ์ชื่อโมเดลเอง เช่น llama3.2, gpt-oss:20b"
+        manBox.Text = ""; manBox.TextColor3 = C.T1; manBox.PlaceholderColor3 = C.T2
+        manBox.Font = Enum.Font.Code; manBox.TextSize = 9
+        manBox.TextTruncate = Enum.TextTruncate.AtEnd
+        manBox.ZIndex = 63; manBox.ClearTextOnFocus = false
+        themed(manBox, "BackgroundColor3", "CD")
+        themed(manBox, "TextColor3", "T1")
+        Instance.new("UICorner", manBox).CornerRadius = UDim.new(0, 8)
+        Sk(manBox, "BD", 1, 0.45)
+
+        local manBtn = mkBtn(manRow, "✓  ใช้", UDim2.fromOffset(56, 28), UDim2.new(1, -56, 0, 1), "accent", 9, 63)
+        manBtn.Name = "MManualBtn"
+
+        -- จัดเลย์เอาต์ตามโหมด: local → มีแถวพิมพ์เอง (เลื่อน status/ลิสต์ลง) · ปกติ → เหมือนเดิม
+        local function layoutManual()
+                local isL = EP.isLocal()
+                manRow.Visible = isL
+                if isL then
+                        manBox.Text = S.currentModel
+                        mStatus.Position = UDim2.fromOffset(12, 112)
+                        mScroll.Position = UDim2.fromOffset(4, 130)
+                        mScroll.Size = UDim2.new(1, -8, 1, -206)
+                else
+                        mStatus.Position = UDim2.fromOffset(12, 78)
+                        mScroll.Position = UDim2.fromOffset(4, 96)
+                        mScroll.Size = UDim2.new(1, -8, 1, -172)
+                end
+        end
+
         local mDetail = F(modelModal, UDim2.new(1, -16, 0, 66), UDim2.fromOffset(8, mH - 74), C.AREA, 8, 61)
         themed(mDetail, "BackgroundColor3", "AREA")
         mDetail.ClipsDescendants = true
@@ -6659,7 +6772,9 @@ do
                 local cap, drawn = 150, 0
                 local prov = EP.provider()
                 local sortTxt = OR.sortedByPrice and "เรียงราคา: ถูกสุดก่อน" or "เรียงตามชื่อ"
-                mkSection((prov and (prov.icon .. " " .. prov.name) or "🤖 Custom") .. " · " .. sortTxt, totalN, C.AC)
+                local secTxt = (prov and (prov.icon .. " " .. prov.name) or "🤖 Custom") .. " · " .. sortTxt
+                if EP.isLocal() then secTxt = secTxt .. " · ✏️ พิมพ์ชื่อเองด้านบนได้" end
+                mkSection(secTxt, totalN, C.AC)
                 for _, m in ipairs(shown) do
                         if drawn >= cap then break end
                         mkRow(m); drawn = drawn + 1
@@ -6669,6 +6784,7 @@ do
         function UIX.openModelSelector()
                 local prov = EP.provider()
                 mHdrLbl.Text = "🤖  SELECT MODEL — " .. string.upper(prov and prov.name or "custom")
+                layoutManual()   -- ✏️ แถวพิมพ์เอง (local) + จัดตำแหน่ง status/ลิสต์ให้พอดี
                 renderModels()
                 openModal(modelModal)
                 if #OR.models == 0 or (tick() - OR.lastFetch) > 600 then
@@ -6708,6 +6824,20 @@ do
                 task.delay(0.15, function()
                         if searchT == now and modelModal.Visible then renderModels() end
                 end)
+        end)
+
+        -- ✏️ ใช้โมเดลที่พิมพ์เอง (local) — ผ่าน UIX.applyManualModel ของ p05
+        --   + อัปเดตแผงรายละเอียด + ปิด modal
+        local function applyMan()
+                if not (UIX.applyManualModel and UIX.applyManualModel(tostring(manBox.Text or ""))) then return end
+                setDetail({ id = S.currentModel, name = S.currentModel, params = "", quant = "",
+                        family = "", size = 0, modified = "", ctx = 0, pin = -1, pout = -1 })
+                renderModels()
+                closeModal(modelModal)
+        end
+        manBtn.MouseButton1Click:Connect(applyMan)
+        manBox.FocusLost:Connect(function(enter)
+                if enter then applyMan() end
         end)
 end
 
