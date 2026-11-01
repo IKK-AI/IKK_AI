@@ -477,6 +477,10 @@ EP = {
                 for _, p in ipairs(PROVIDERS) do
                         if b == p.url:lower() then return p end
                 end
+                -- 127.0.0.1 = Local AI แบบเดียวกับ localhost (หลัง fallback IPv4 อัตโนมัติ)
+                if b == "http://127.0.0.1:11434/api" or b == "http://0.0.0.0:11434/api" then
+                        return PROVIDERS[1]
+                end
                 return nil
         end,
 }
@@ -2033,6 +2037,34 @@ local function fastTest(key)
         return true, info
 end
 
+-- ═══════════════════════════════════════════════════════════════
+-- LOCAL PROBE — ตรวจเซิร์ฟเวอร์ Ollama ในเครื่อง (โหมด Local AI · ไม่มีคีย์)
+--   ลองหลายทาง: /tags (หรือ /models ถ้า /v1) → ไม่ตอบค่อยลอง /version
+--   ★ ถ้าโฮสต์เป็น localhost แล้วต่อไม่ได้ → ลอง 127.0.0.1 แทน
+--     (บางระบบแก้ localhost เป็น IPv6 ::1 แต่ Ollama รับฟังแค่ IPv4 127.0.0.1
+--      เป็นสาเหตุอันดับ 1 ที่ "กด Connect แล้ว error" ในโหมด local)
+--   คืน: ok, usedBase  (usedBase = base ที่ต่อได้จริง — ต่างจากเดิม = โดน fallback)
+-- ═══════════════════════════════════════════════════════════════
+local function localProbe()
+        if not Http or not HttpService then return false, nil end
+        local function tryUrl(u)
+                local okR, resR = pcall(function()
+                        return Http({ Url = u, Method = "GET", Headers = {} })
+                end)
+                return okR and resR and resR.StatusCode == 200
+        end
+        local b = EP.base()
+        if tryUrl(EP.tags()) then return true, b end          -- native → /tags · /v1 → /models
+        if tryUrl(EP.ver()) then return true, b end           -- เซิร์ฟเวอร์บางตัวไม่มี /tags
+        -- localhost ไม่ตอบ → ลอง IPv4 127.0.0.1 (กัน localhost ชี้ไป ::1)
+        if b:lower():find("localhost", 1, true) then
+                local b2 = b:gsub("[Ll]ocalhost", "127.0.0.1")
+                if tryUrl(b2 .. (EP.oai() and "/models" or "/tags")) then return true, b2 end
+                if tryUrl(b2 .. "/version") then return true, b2 end
+        end
+        return false, nil
+end
+
 function PX.unstick()
         if S.thinking and (tick() - S.thinkStart) > 10 then
                 S.thinking = false
@@ -2160,14 +2192,13 @@ local function callAI(userMsg, uid, name, isObs, skipSave, isToxic)
                         pool[#pool + 1] = { idx = i, key = k }
                 end
         end
-        if #pool == 0 then
-                -- Ollama ในเครื่อง (localhost) ไม่ต้องใช้คีย์ → ยิงตรง ๆ ไม่มี Bearer
-                if EP.isLocal() then
-                        pool[#pool + 1] = { idx = 1, key = "" }
-                else
-                        apiErrToast("NOKEY")
-                        return nil, "NOKEY"
-                end
+        -- 🖥️ Local AI = ปิดระบบคีย์ทั้งหมด: ยิงตรง ๆ ไม่มี Bearer เสมอ
+        --   (แม้ช่องคีย์จะมีข้อความค้างจากค่ายคลาวด์ก็ตาม — ไม่ใช้ ไม่ทดสอบ)
+        if EP.isLocal() then
+                pool = { { idx = 1, key = "" } }
+        elseif #pool == 0 then
+                apiErrToast("NOKEY")
+                return nil, "NOKEY"
         end
 
         local uidK = uid and tostring(uid) or nil
@@ -2374,8 +2405,10 @@ local function callAI(userMsg, uid, name, isObs, skipSave, isToxic)
                 return nil, "ALLKEYS"
         end
 
-        if usedIdx > 0 then
+        if usedIdx > 0 and not EP.isLocal() then
                 print("[Sebas AI] ✅ using API Key #" .. usedIdx)
+        elseif usedIdx > 0 then
+                print("[Sebas AI] ✅ Local AI ตอบกลับ (ไม่ใช้คีย์)")
         end
 
         S.nextReq = tick() + math.max(S.cooldown or 1, 1)
@@ -4599,8 +4632,15 @@ function notify(title, text, kind)
         end
 
         local col = kind == "ok" and C.OK or kind == "err" and C.NO or kind == "warn" and C.WN or C.AC
+        -- ข้อความหลายบรรทัด (มี \n) → toast สูงขึ้นตามจำนวนบรรทัด (สูงสุด 4)
+        local nLines = 1
+        if type(text) == "string" then
+                nLines = nLines + select(2, text:gsub("\n", ""))
+                if nLines > 4 then nLines = 4 end
+        end
+        local tH = 52 + (nLines - 1) * 24
         local t = Instance.new("Frame", toastHolder)
-        t.Size = UDim2.fromOffset(236, 52)
+        t.Size = UDim2.fromOffset(236, tH)
         t.BackgroundColor3 = C.POP
         t.BorderSizePixel = 0
         t.ZIndex = 961
@@ -4616,21 +4656,30 @@ function notify(title, text, kind)
         Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
 
         Lk(t, title, UDim2.new(1, -58, 0, 15), UDim2.fromOffset(26, 6), 10, BF, "T1", Enum.TextXAlignment.Left, 962)
-        local body = Lk(t, text or "", UDim2.new(1, -58, 0, 24), UDim2.fromOffset(26, 21), 9, RF, "T2", Enum.TextXAlignment.Left, 962)
+        local body = Lk(t, text or "", UDim2.new(1, -58, 0, 24 + (nLines - 1) * 24), UDim2.fromOffset(26, 21), 9, RF, "T2", Enum.TextXAlignment.Left, 962)
         body.TextWrapped = true
         body.TextYAlignment = Enum.TextYAlignment.Top
         body.TextTruncate = Enum.TextTruncate.AtEnd
+
+        -- ตำแหน่ง y ของ toast ลำดับที่ i (toast สูงไม่เท่ากันได้ — วางต่อกันตามความสูงจริง)
+        local function stackY(i)
+                local y = 0
+                for j = 1, math.min(i - 1, #toastList) do
+                        local tj = toastList[j]
+                        if tj then y = y + tj.Size.Y.Offset + 6 end
+                end
+                return y
+        end
 
         toastList[#toastList + 1] = t
 
         -- เรียงตำแหน่งใหม่ + สไลด์เข้า
         for i, tt in ipairs(toastList) do
-                local targetY = (i - 1) * 58
-                ANIM.play(tt, { Position = UDim2.fromOffset(0, targetY) },
+                ANIM.play(tt, { Position = UDim2.fromOffset(0, stackY(i)) },
                         { t = 0.22, style = Enum.EasingStyle.Quad, dir = Enum.EasingDirection.Out, tag = "tpos" })
         end
-        t.Position = UDim2.fromOffset(250, (#toastList - 1) * 58)
-        ANIM.play(t, { Position = UDim2.fromOffset(0, (#toastList - 1) * 58) },
+        t.Position = UDim2.fromOffset(250, stackY(#toastList))
+        ANIM.play(t, { Position = UDim2.fromOffset(0, stackY(#toastList)) },
                 { t = 0.3, style = Enum.EasingStyle.Back, dir = Enum.EasingDirection.Out, tag = "tin" })
         ANIM.popIn(t, { from = 0.9, t = 0.26 })
 
@@ -4645,7 +4694,7 @@ function notify(title, text, kind)
                                         if t and t.Parent then t:Destroy() end
                                 end })
                 for i, tt in ipairs(toastList) do
-                        ANIM.play(tt, { Position = UDim2.fromOffset(0, (i - 1) * 58) },
+                        ANIM.play(tt, { Position = UDim2.fromOffset(0, stackY(i)) },
                                 { t = 0.22, tag = "tpos" })
                 end
         end)
@@ -4668,13 +4717,19 @@ updateHUD = function()
         for i = 1, actN do
                 if S.keyOk[i] then okN = okN + 1 end
         end
-        local txt = "🔑 " .. okN .. "/" .. actN .. "  ⚡ " .. fmtTok(S.totalTokensUsed)
-        if S.lastKeyIdx and S.lastKeyIdx > 0 then
-                txt = txt .. "  K" .. S.lastKeyIdx
+        -- 🖥️ Local AI: ปิดระบบคีย์ → pill บอกโหมด local แทนจำนวนคีย์
+        local txt
+        if EP.isLocal() then
+                txt = "🖥️ Local  ⚡ " .. fmtTok(S.totalTokensUsed)
+        else
+                txt = "🔑 " .. okN .. "/" .. actN .. "  ⚡ " .. fmtTok(S.totalTokensUsed)
+                if S.lastKeyIdx and S.lastKeyIdx > 0 then
+                        txt = txt .. "  K" .. S.lastKeyIdx
+                end
         end
         pcall(function() tokenLbl.Text = txt end)
         pcall(function() pillToken.Text = fmtTok(S.totalTokensUsed) end)
-        local col = S.connected and (okN > 0 and C.OK or C.WN) or C.NO
+        local col = S.connected and ((EP.isLocal() or okN > 0) and C.OK or C.WN) or C.NO
         pcall(function() spDot.BackgroundColor3 = col end)
         pcall(function() pillDot.BackgroundColor3 = col end)
 end
@@ -4807,6 +4862,7 @@ do
 
         -- ─── Slider เลือกจำนวนคีย์ 1-10 (สไตล์ใหม่ ลากลื่น) ───
         local skRow = Instance.new("Frame", apiCard1)
+        skRow.Name = "KeyCountRow"
         skRow.Size = UDim2.new(1, -16, 0, 42)
         skRow.Position = UDim2.fromOffset(8, 18)
         skRow.BackgroundTransparency = 1; skRow.ZIndex = 15
@@ -4889,7 +4945,7 @@ do
         end)
 
         -- ─── PROVIDER — เหลือ 3 ตัวตามคำขอเจ้าของ เน้น Local AI ก่อน (ชิปเลื่อนแนวนอน) ───
-        Lk(apiCard1, "🖥️  PROVIDER — Local AI แนะนำ (ไม่ต้องใช้คีย์) / Ollama Cloud / OpenRouter", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(8, 60), 8, BF, "T2", Enum.TextXAlignment.Left, 15)
+        local provLbl = Lk(apiCard1, "🖥️  PROVIDER — Local AI แนะนำ (ไม่ต้องใช้คีย์) / Ollama Cloud / OpenRouter", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(8, 60), 8, BF, "T2", Enum.TextXAlignment.Left, 15)
 
         local provScroll = Instance.new("ScrollingFrame", apiCard1)
         provScroll.Size = UDim2.new(1, -16, 0, 26)
@@ -4963,6 +5019,7 @@ do
         for i = 1, MAX_KEYS do
                 local y = 152 + (i - 1) * 26
                 local row = Instance.new("Frame", apiCard1)
+                row.Name = "KeyRow_" .. i
                 row.Size = UDim2.new(1, -16, 0, 24)
                 row.Position = UDim2.fromOffset(8, y)
                 row.BackgroundTransparency = 1; row.ZIndex = 15
@@ -5004,6 +5061,32 @@ do
                 keyRows[i] = { row = row, dot = dot, box = box, st = st }
         end
 
+        -- ─── 🖥️ LOCAL PANEL — ใช้แทนระบบคีย์ทั้งหมดเมื่อเป็น Local AI ───
+        --   (ตามคำสั่งเจ้าของ: โหมด local = ปิดระบบคีย์ไปเลย ไม่มีช่องคีย์ให้เห็น)
+        local localPanel = Instance.new("Frame", apiCard1)
+        localPanel.Name = "LocalPanel"
+        localPanel.Size = UDim2.new(1, -16, 0, 84)
+        localPanel.Position = UDim2.fromOffset(8, 96)
+        localPanel.BackgroundColor3 = C.CD; localPanel.BorderSizePixel = 0
+        localPanel.ZIndex = 15; localPanel.Visible = false
+        themed(localPanel, "BackgroundColor3", "CD")
+        Instance.new("UICorner", localPanel).CornerRadius = UDim.new(0, 8)
+        Sk(localPanel, "AC", 1, 0.35)
+
+        Lk(localPanel, "🖥️  Local AI — Ollama ในเครื่อง ไม่ต้องใช้คีย์", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(10, 8), 9, BF, "T1", Enum.TextXAlignment.Left, 16)
+        local localStatLbl = Lk(localPanel, "ยังไม่เชื่อมต่อ — กด 🔗 Connect ได้เลย ไม่ต้องใส่คีย์", UDim2.new(1, -16, 0, 26), UDim2.fromOffset(10, 24), 8, RF, "T2", Enum.TextXAlignment.Left, 16)
+        localStatLbl.TextWrapped = true
+        local localHintLbl = Lk(localPanel, "💡 เปิดแอป Ollama ทิ้งไว้ที่เครื่องนี้ · เล่นคนละเครื่อง → พิมพ์ IP เครื่องที่รัน Ollama ในช่อง Base URL เช่น http://192.168.1.50:11434", UDim2.new(1, -16, 0, 30), UDim2.fromOffset(10, 50), 8, RF, "T2", Enum.TextXAlignment.Left, 16)
+        localHintLbl.TextWrapped = true
+
+        -- อัปเดตแถบสถานะของแผง local (เรียกจาก doConnect ตอนต่อสำเร็จ/ล้ม)
+        UIX.setLocalStat = function(txt, col)
+                pcall(function()
+                        if type(txt) == "string" and #txt > 0 then localStatLbl.Text = txt end
+                        localStatLbl.TextColor3 = col or C.T2
+                end)
+        end
+
         -- ─── สถานะ + ปุ่ม Connect ───
         local statusLbl = Lk(apiCard1, "● Disconnected", UDim2.new(1, -118, 0, 20), UDim2.fromOffset(10, 418), 10, BF, "T2", Enum.TextXAlignment.Left, 15)
         local connBtn = mkBtn(apiCard1, "🔗  Connect All", UDim2.fromOffset(106, 28), UDim2.new(1, -114, 0, 414), "accent", 10, 16)
@@ -5011,7 +5094,7 @@ do
         local creditLbl = Lk(apiCard1, "🌐  API: — (กด Connect All เพื่อตรวจ)", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(10, 448), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
         creditLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
-        Lk(apiCard1, "SEBAS " .. VERSION_TAG .. " · LOCAL · OLLAMA · OPENROUTER · by IKKYU", UDim2.new(1, -16, 0, 12), UDim2.fromOffset(10, 464), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
+        local footLbl = Lk(apiCard1, "SEBAS " .. VERSION_TAG .. " · LOCAL · OLLAMA · OPENROUTER · by IKKYU", UDim2.new(1, -16, 0, 12), UDim2.fromOffset(10, 464), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
 
         -- ─── updateKeyDots: จุดสถานะแต่ละคีย์ ───
         local function updateKeyDots()
@@ -5058,6 +5141,39 @@ do
         end
         updateKeyDots()
 
+        -- ─── applyModeLayout: 🖥️ Local AI = ปิดระบบคีย์ทั้งหมด · ☁️ คลาวด์ = คืนระบบคีย์ ───
+        --   local:  ซ่อน slider จำนวนคีย์ + ป้ายลำดับคีย์ + ช่องคีย์ทั้ง 10 ช่อง
+        --           โชว์แผงสถานะ Local AI แทน แล้วย่อการ์ดให้กระชับ
+        --   cloud:  คืนทุกอย่างตามเลย์เอาต์เดิม
+        local CARD_H_CLOUD, CARD_H_LOCAL = 486, 262
+        local function applyModeLayout()
+                local isL = EP.isLocal() == true
+                skRow.Visible = not isL
+                orderLbl.Visible = not isL
+                for i = 1, MAX_KEYS do
+                        local r = keyRows[i]
+                        if r then r.row.Visible = not isL end
+                end
+                localPanel.Visible = isL
+                provLbl.Position = UDim2.fromOffset(8, isL and 18 or 60)
+                provScroll.Position = UDim2.fromOffset(8, isL and 32 or 74)
+                baseRow.Position = UDim2.fromOffset(8, isL and 64 or 106)
+                connBtn.Position = UDim2.new(1, -114, 0, isL and 188 or 414)
+                statusLbl.Position = UDim2.fromOffset(10, isL and 192 or 418)
+                creditLbl.Position = UDim2.fromOffset(10, isL and 222 or 448)
+                footLbl.Position = UDim2.fromOffset(10, isL and 238 or 464)
+                connBtn.Text = isL and "🔗  Connect Local AI" or "🔗  Connect All"
+                apiCard1.Size = UDim2.new(1, -3, 0, isL and CARD_H_LOCAL or CARD_H_CLOUD)
+                if isL then
+                        if S.connected and type(S.localStatTxt) == "string" and #S.localStatTxt > 0 then
+                                UIX.setLocalStat(S.localStatTxt, C.OK)
+                        else
+                                UIX.setLocalStat("ยังไม่เชื่อมต่อ — กด 🔗 Connect ได้เลย ไม่ต้องใส่คีย์", C.T2)
+                        end
+                end
+        end
+        applyModeLayout()
+
         connBtn.MouseButton1Click:Connect(function()
                 if doConnect then doConnect() end
         end)
@@ -5067,6 +5183,26 @@ do
         --   อัปเดตจุดสถานะ/pill/status label ตามผลตรวจล่าสุดทันที
         UIX.refreshKeyStatus = function(silent)
                 if not S.connected then return end
+                -- 🖥️ Local AI: ปิดระบบคีย์ — ตรวจเซิร์ฟเวอร์แบบเงียบแทน (ไม่ยุ่งกับคีย์)
+                if EP.isLocal() then
+                        task.spawn(function()
+                                local okL = localProbe()
+                                if okL then
+                                        UIX.statusLbl.Text = "● Connected ✓ (Local AI)"
+                                        UIX.statusLbl.TextColor3 = C.OK
+                                else
+                                        S.connected = false
+                                        UIX.statusLbl.Text = "● Local AI ต่อไม่ได้ — เซิร์ฟเวอร์ไม่ตอบ"
+                                        UIX.statusLbl.TextColor3 = C.NO
+                                        pillDot.BackgroundColor3 = C.NO
+                                        if UIX.setLocalStat then
+                                                UIX.setLocalStat("❌ หลุดการเชื่อมต่อ — เซิร์ฟเวอร์ไม่ตอบ กด Connect ใหม่", C.NO)
+                                        end
+                                end
+                                if updateHUD then pcall(updateHUD) end
+                        end)
+                        return
+                end
                 local actN = math.clamp(tonumber(S.activeKeys) or 1, 1, MAX_KEYS)
                 local filled = 0
                 for i = 1, actN do
@@ -5137,6 +5273,8 @@ do
                 end
                 creditLbl.Text = (cur and (cur.icon .. "  " .. cur.name) or (EP.isLocal() and "🖥️  Local AI" or "🌐  Custom API"))
                         .. ": — (กด Connect All เพื่อตรวจ)"
+                -- 🖥️ Local AI: ปิดระบบคีย์ทั้งหมด (ซ่อน slider/ช่องคีย์ โชว์แผง local แทน)
+                applyModeLayout()
                 -- ปุ่ม Auto: local → กลายเป็นปุ่มต่อ Local AI (ไม่ต้องสร้างคีย์)
                 if UIX.setAutoKeyBtn then UIX.setAutoKeyBtn() end
                 -- แถว "พิมพ์ชื่อโมเดลเอง" (การ์ด AI MODEL) โชว์เฉพาะ Local AI
@@ -5150,7 +5288,9 @@ do
                         S.baseURL = p.url == EP.DEFAULT and "" or p.url
                         saveSettings()
                 end
-                -- ล้างแคชโมเดลของตัวเลือกเดิม ให้ดึงใหม่จาก Base URL ใหม่
+                -- สลับค่าย = ต้องต่อใหม่ (ล้างสถานะเดิม + ล้างแคชโมเดลของค่ายเดิม)
+                S.connected = false; S.localStatTxt = nil
+                if updateHUD then pcall(updateHUD) end
                 OR.models = {}; OR.lastFetch = 0
                 refreshProviderUI()
                 if UIX.updateKeyDots then UIX.updateKeyDots() end
@@ -5180,7 +5320,8 @@ do
                 S.baseURL = baseBox.Text == EP.DEFAULT and "" or baseBox.Text
                 saveSettings()
                 if nb ~= old and #nb > 3 then
-                        -- เปลี่ยน Base URL → ล้างแคชโมเดลเดิม ให้ดึงใหม่จาก URL ใหม่
+                        -- เปลี่ยน Base URL → ล้างแคชโมเดลเดิม + สถานะ local ให้ดึง/ต่อใหม่จาก URL ใหม่
+                        S.localStatTxt = nil
                         OR.models = {}; OR.lastFetch = 0
                         refreshProviderUI()
                         notify("🌐 Base URL", "บันทึกแล้ว — กด Connect เพื่อใช้งาน", "ok")
@@ -7027,8 +7168,8 @@ end
 
 
 -- ═══════════════════════════════════════════════════════════════
--- doConnect — ทดสอบทุกคีย์ → ต่อได้ถ้า ≥1 ผ่าน
---   (Ollama ในเครื่อง = localhost → ไม่ต้องมีคีย์ ต่อได้เลย)
+-- doConnect — 🖥️ Local AI: ตรวจเซิร์ฟเวอร์ตรง ๆ (ปิดระบบคีย์ทั้งหมด)
+--            ☁️ คลาวด์: ทดสอบทุกคีย์ → ต่อได้ถ้า ≥1 ผ่าน
 -- ═══════════════════════════════════════════════════════════════
 do
         function doConnect(fromAuto)
@@ -7042,13 +7183,102 @@ do
                 end
                 saveKeys()
 
+                S.thinking = false; S.nextReq = 0
+
+                -- ══ 🖥️ LOCAL AI — ปิดระบบคีย์ทั้งหมด: ตรวจเซิร์ฟเวอร์ตรง ๆ ไม่ยุ่งกับคีย์ ══
+                --   แม้ช่องคีย์จะมีข้อความค้างจากค่ายคลาวด์ก็ไม่ทดสอบ ไม่ส่ง Bearer
+                --   localProbe ลอง localhost → 127.0.0.1 ให้เอง (กัน localhost ชี้ IPv6)
+                if EP.isLocal() then
+                        UIX.statusLbl.Text = "● กำลังต่อ Local AI..."
+                        UIX.statusLbl.TextColor3 = C.WN
+                        if UIX.setLocalStat then UIX.setLocalStat("⏳ กำลังเชื่อมต่อ " .. EP.base(), C.WN) end
+                        task.spawn(function()
+                                local ok, usedBase = localProbe()
+                                if ok then
+                                        -- localhost ต่อไม่ได้แต่ 127.0.0.1 ได้ → จำ base ที่ใช้ได้ไปใช้ต่อ (แชท/โมเดล)
+                                        if type(usedBase) == "string" and usedBase ~= EP.base() then
+                                                S.baseURL = usedBase
+                                                saveSettings()
+                                                if UIX.refreshProviderUI then UIX.refreshProviderUI() end
+                                        end
+                                        S.connected = true
+                                        S.key = ""; S.curKey = 1
+                                        S.keyOk[1] = true; S.keyErr[1] = nil; S.keyDry[1] = nil
+                                        UIX.statusLbl.Text = "● Connected ✓ (Local AI · ไม่ใช้คีย์)"
+                                        UIX.statusLbl.TextColor3 = C.OK
+                                        pillDot.BackgroundColor3 = C.OK
+                                        updateHUD()
+                                        if not fromAuto then
+                                                notify("🔗 Connected", "Local AI พร้อมใช้งาน — ไม่ต้องใช้คีย์", "ok")
+                                        end
+                                        makeRing()
+                                        -- เวอร์ชั่น Ollama + จำนวนโมเดล → แผงสถานะ local (เฉพาะโหมด native)
+                                        task.spawn(function()
+                                                local verTxt, modelN = "", -1
+                                                if not EP.oai() then
+                                                        pcall(function()
+                                                                local okv, resv = pcall(function()
+                                                                        return Http({ Url = EP.ver(), Method = "GET", Headers = {} })
+                                                                end)
+                                                                if okv and resv and resv.StatusCode == 200 then
+                                                                        local dv = HttpService:JSONDecode(resv.Body)
+                                                                        if dv and type(dv.version) == "string" then verTxt = "Ollama " .. dv.version end
+                                                                end
+                                                        end)
+                                                end
+                                                pcall(function()
+                                                        local okm, resm = pcall(function()
+                                                                return Http({ Url = EP.tags(), Method = "GET", Headers = {} })
+                                                        end)
+                                                        if okm and resm and resm.StatusCode == 200 then
+                                                                local dm = HttpService:JSONDecode(resm.Body)
+                                                                if type(dm) == "table" then
+                                                                        if type(dm.models) == "table" then modelN = #dm.models
+                                                                        elseif type(dm.data) == "table" then modelN = #dm.data end
+                                                                end
+                                                        end
+                                                end)
+                                                local parts = {}
+                                                if verTxt ~= "" then parts[#parts + 1] = verTxt end
+                                                if modelN >= 0 then parts[#parts + 1] = modelN .. " โมเดลในเครื่อง" end
+                                                local statTxt = "เชื่อมต่อแล้ว ✓" .. (#parts > 0 and ("  ·  " .. table.concat(parts, "  ·  ")) or "")
+                                                S.localStatTxt = statTxt
+                                                if UIX.setLocalStat then UIX.setLocalStat(statTxt, C.OK) end
+                                                if UIX.creditLbl then
+                                                        UIX.creditLbl.Text = "🖥️  Local AI:  " .. (#parts > 0 and table.concat(parts, "  ·  ") or "พร้อมใช้งาน")
+                                                end
+                                        end)
+                                        task.spawn(function()
+                                                task.wait(0.3)
+                                                pcall(OR.fetchModels, true)
+                                        end)
+                                else
+                                        S.connected = false; S.key = ""
+                                        UIX.statusLbl.Text = "● Local AI ต่อไม่ได้ — เปิด Ollama ในเครื่องก่อน"
+                                        UIX.statusLbl.TextColor3 = C.NO
+                                        pillDot.BackgroundColor3 = C.NO
+                                        updateHUD()
+                                        S.localStatTxt = nil
+                                        if UIX.setLocalStat then
+                                                UIX.setLocalStat("❌ ต่อไม่ได้ — " .. EP.base() .. " ไม่ตอบ", C.NO)
+                                        end
+                                        if not fromAuto then
+                                                notify("❌ Local AI", "ต่อ Ollama ในเครื่องไม่ได้ — เช็คตามนี้:\n① เปิดแอป Ollama (หรือรัน ollama serve) ในเครื่องนี้หรือยัง\n② ลากโมเดลมาไว้ 1 ตัว (ollama pull llama3.2)\n③ เล่น Roblox คนละเครื่องกับ Ollama → พิมพ์ IP เครื่อง Ollama ลงช่อง Base URL เช่น http://192.168.1.50:11434", "err")
+                                                SND.play("error")
+                                        end
+                                end
+                        end)
+                        return
+                end
+
+                -- ══ ☁️ CLOUD — ทดสอบทุกคีย์ตามลำดับ 1→2→3 (ระบบเดิม) ══
                 local actN = math.clamp(tonumber(S.activeKeys) or 1, 1, MAX_KEYS)
                 if not AUTH.on("multikey") then actN = 1 end   -- 🔒 premium gate: ใช้จริงแค่คีย์เดียว
                 local filled = 0
                 for i = 1, actN do
                         if type(S.keys[i]) == "string" and #S.keys[i] >= 10 then filled = filled + 1 end
                 end
-                if filled == 0 and not EP.isLocal() then
+                if filled == 0 then
                         S.connected = false; S.key = ""
                         UIX.statusLbl.Text = "● ยังไม่ใส่คีย์ (ช่อง 1-" .. actN .. ")"
                         UIX.statusLbl.TextColor3 = C.NO
@@ -7062,8 +7292,7 @@ do
                         return
                 end
 
-                S.thinking = false; S.nextReq = 0
-                UIX.statusLbl.Text = "● Testing " .. (filled > 0 and (filled .. " key(s)...") or "local Ollama...")
+                UIX.statusLbl.Text = "● Testing " .. filled .. " key(s)..."
                 UIX.statusLbl.TextColor3 = C.WN
 
                 task.spawn(function()
@@ -7087,22 +7316,11 @@ do
                                 end
                         end
 
-                        -- ไม่มีคีย์เลย + Base URL เป็น localhost → โหมด local (ไม่ต้องใช้คีย์)
-                        if filled == 0 and okCount == 0 and EP.isLocal() then
-                                local ok0 = fastTest("")
-                                if ok0 then
-                                        okCount = 1; firstOk = 1
-                                        S.keys[1] = ""
-                                        S.keyOk[1] = true; S.keyErr[1] = nil; S.keyDry[1] = nil
-                                        credits[#credits + 1] = "local · no key"
-                                end
-                        end
-
                         if okCount > 0 and firstOk then
                                 S.connected = true
                                 S.key = S.keys[firstOk] or ""
                                 S.curKey = firstOk
-                                UIX.statusLbl.Text = "● Connected ✓ (" .. okCount .. "/" .. math.max(filled, 1) .. (EP.isLocal() and filled == 0 and " · local)" or " keys)")
+                                UIX.statusLbl.Text = "● Connected ✓ (" .. okCount .. "/" .. math.max(filled, 1) .. " keys)"
                                 UIX.statusLbl.TextColor3 = C.OK
                                 pillDot.BackgroundColor3 = C.OK
                                 -- ข้อมูลเซิร์ฟเวอร์: เวอร์ชั่น Ollama (เฉพาะโหมด native) + สรุปคีย์ตามผู้ให้บริการ
@@ -7757,16 +7975,16 @@ do
         -- ═══ 13 ขั้น ═══
         local steps = {
                 { tab = "api", title = "🔑  API Keys (Local AI)",
-                        desc = "เลือกที่แถบ PROVIDER: 🖥️ Local AI (Ollama ในเครื่อง ไม่ต้องใช้คีย์ แนะนำ) / 🦙 Ollama Cloud / 🔀 OpenRouter — ใส่ API key ได้สูงสุด 10 ช่อง",
+                        desc = "เลือกที่แถบ PROVIDER: 🖥️ Local AI (Ollama ในเครื่อง ไม่ต้องใช้คีย์ แนะนำ) / 🦙 Ollama Cloud / 🔀 OpenRouter — โหมด Local AI จะปิดระบบคีย์ให้เอง (ไม่มีช่องคีย์) สลับเป็นค่ายคลาวด์เมื่อไหร่ช่องคีย์ 10 ช่องจะกลับมา",
                         getEl = function() return UIX.keyBox end, side = "bottom" },
                 { tab = "api", title = "🎚️  Active Keys Slider",
-                        desc = "เลื่อนเลือกจำนวนคีย์ที่เปิดใช้ 1-10 คีย์ — slider ลากได้ลื่น ๆ",
+                        desc = "เลื่อนเลือกจำนวนคีย์ที่เปิดใช้ 1-10 คีย์ — โชว์เฉพาะค่ายคลาวด์ (Local AI ไม่ใช้คีย์จึงซ่อนไว้)",
                         getEl = function() return UIX.keyRows and UIX.keyRows[1] and UIX.keyRows[1].row end, side = "top" },
                 { tab = "api", title = "⚡  Connect Button",
-                        desc = "กด Connect All — จุดสถานะเป็นสีเขียวเมื่อ AI พร้อมใช้งาน",
+                        desc = "กด Connect — โหมด Local AI ต่อเข้า Ollama ในเครื่องได้เลยโดยไม่ต้องใช้คีย์ · ค่ายคลาวด์จะทดสอบคีย์ทีละช่อง จุดสถานะเขียว = พร้อมใช้งาน",
                         getEl = function() return UIX.connBtn end, side = "bottom" },
                 { tab = "api", title = "📊  Key & Token Counter",
-                        desc = "กดที่ pill นี้เพื่อกลับมาหน้า API — แสดงคีย์ที่ใช้ได้ (🔑 N/M) และโทเคนสะสม อัปเดตสด ๆ ตลอด",
+                        desc = "กดที่ pill นี้เพื่อกลับมาหน้า API — โหมด Local AI ขึ้น 🖥️ Local ค่ายคลาวด์ขึ้น 🔑 N/M พร้อมโทเคนสะสม อัปเดตสด ๆ ตลอด",
                         getEl = function() return statusPill end, side = "bottom" },
                 { tab = "chat", title = "🎞️  Cover Flow Carousel",
                         desc = "ปัดนิ้วซ้าย-ขวาบนแถบการ์ด หรือแตะการ์ดใดก็ได้ เพื่อเปลี่ยนหน้าแบบ 3D · ปัดได้ทั้งบนแถบการ์ดและแถบหัวเรื่อง",
@@ -8657,7 +8875,11 @@ local function fillOR()
                 for i = 1, actN do
                         if S.keyOk[i] then okN = okN + 1 end
                 end
-                if S.connected and okN > 0 then
+                if S.connected and EP.isLocal() then
+                        orDot2.BackgroundColor3 = C.OK
+                        orLine3.Text = "Connected ✓  (Local AI · ไม่ใช้คีย์)"
+                        orLine3.TextColor3 = C.OK
+                elseif S.connected and okN > 0 then
                         orDot2.BackgroundColor3 = C.OK
                         orLine3.Text = "Connected ✓  (" .. okN .. "/" .. actN .. " keys live)"
                         orLine3.TextColor3 = C.OK
@@ -8671,7 +8893,9 @@ local function fillOR()
                         orLine3.TextColor3 = C.NO
                 end
                 local tok = tonumber(S.totalTokensUsed) or 0
-                orLine4.Text = "⚡ Tokens: " .. string.format("%.1fK", tok / 1000) .. "  ·  🔑 Keys: " .. actN
+                orLine4.Text = EP.isLocal()
+                        and ("⚡ Tokens: " .. string.format("%.1fK", tok / 1000) .. "  ·  🖥️ Local AI (ไม่ใช้คีย์)")
+                        or ("⚡ Tokens: " .. string.format("%.1fK", tok / 1000) .. "  ·  🔑 Keys: " .. actN)
                 orModel2.Text = "🤖 " .. tostring(S.currentModel)
         end)
 end
