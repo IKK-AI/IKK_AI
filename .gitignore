@@ -1,6 +1,6 @@
 --[[
 ╔══════════════════════════════════════════════════════════════════════╗
-║              SEBAS AI · MULTI-PROVIDER CONTROLLER  v7.0.0       ║
+║        SEBAS AI · LOCAL AI + OLLAMA + OPENROUTER  v7.0.0      ║
 ║             "LUXE REDESIGN · POLISH"  ·  by IKKYU                     ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║  GUI REDESIGN (อ้างอิง LUXE HUB dashboard):                          ║
@@ -319,14 +319,14 @@ function AUTH.on(f)
 end
 
 local AVAILABLE_MODELS = {
-        {name = "GPT OSS 20B (cloud)",   id = "gpt-oss:20b"},
+        {name = "Llama 3.2 3B (local)",  id = "llama3.2:3b"},
+        {name = "Qwen 2.5 7B (local)",   id = "qwen2.5:7b"},
+        {name = "GPT OSS 20B",           id = "gpt-oss:20b"},
         {name = "GPT OSS 120B (cloud)",  id = "gpt-oss:120b"},
         {name = "Gemma 4 31B (cloud)",   id = "gemma4:31b"},
         {name = "Gemma 4 12B (cloud)",   id = "gemma4:12b"},
         {name = "Qwen 3.5 27B (cloud)",  id = "qwen3.5:27b"},
         {name = "DeepSeek R1 8B",        id = "deepseek-r1:8b"},
-        {name = "Llama 3.2 3B (local)",  id = "llama3.2:3b"},
-        {name = "Qwen 2.5 7B (local)",   id = "qwen2.5:7b"},
 }
 
 -- CORE_PERSONA — พรอมป์หลักจากเจ้าของ (ใช้ตรงตามที่ส่งมา)
@@ -390,7 +390,7 @@ local S = {
         whitelistOn = false, whitelist = {},
         totalTokensUsed = 0, remainingTokens = -1, tokenResetTime = 0,
         currentTheme = "midnight",
-        baseURL = "",   -- Base URL (ว่าง = https://ollama.com/api — สลับค่ายได้ในหน้า API)
+        baseURL = "",   -- Base URL (ว่าง = Local AI http://localhost:11434/api — สลับได้ในหน้า API)
         -- Multi-Key
         keys = { "", "", "", "", "", "", "", "", "", "" },
         activeKeys = 1,
@@ -411,59 +411,68 @@ local S = {
 }
 
 -- ═══════════════════════════════════════════════════════════════
--- PROVIDER PRESETS — เลือก Base URL ได้ทุกค่าย (ชิปในหน้า API)
---   ทุกค่ายใช้ระบบเดียวกัน: ดึงโมเดลสดจาก Base URL + Bearer key
---   (ยกเว้น Ollama ในเครื่อง = localhost ไม่ต้องใช้คีย์)
+-- PROVIDER PRESETS — เหลือ 3 ตัวตามคำขอเจ้าของ: เน้น Local AI ของ Ollama
+--   ① 🖥️ Local AI (ค่าเริ่มต้น) — Ollama ในเครื่อง/วงแลน ไม่ต้องใช้คีย์
+--   ② 🦙 Ollama Cloud          — คลาวด์ของ Ollama (ใช้คีย์จาก ollama.com)
+--   ③ 🔀 OpenRouter            — รวมโมเดลคลาวด์ (ส่งราคามา → เรียงถูกสุดก่อน)
+--   (ค่ายอื่น ๆ ถูกเอาออกหมดแล้ว — พิมพ์ URL เซิร์ฟเวอร์เองได้ผ่านช่อง Base URL)
 -- ═══════════════════════════════════════════════════════════════
 PROVIDERS = {
-        { id = "ollama",      icon = "🦙", name = "Ollama Cloud",    url = "https://ollama.com/api",                                  keyurl = "ollama.com/settings/keys" },
-        { id = "ollamalocal", icon = "🖥️", name = "Ollama Local",    url = "http://localhost:11434/api",                              keyurl = nil },
-        { id = "openrouter",  icon = "🔀", name = "OpenRouter",      url = "https://openrouter.ai/api/v1",                            keyurl = "openrouter.ai/settings/keys" },
-        { id = "groq",        icon = "⚡", name = "Groq",            url = "https://api.groq.com/openai/v1",                          keyurl = "console.groq.com/keys" },
-        { id = "openai",      icon = "🤖", name = "OpenAI",          url = "https://api.openai.com/v1",                               keyurl = "platform.openai.com/api-keys" },
-        { id = "gemini",      icon = "🌐", name = "Google Gemini",   url = "https://generativelanguage.googleapis.com/v1beta/openai", keyurl = "aistudio.google.com/apikey" },
-        { id = "deepseek",    icon = "🐋", name = "DeepSeek",        url = "https://api.deepseek.com/v1",                             keyurl = "platform.deepseek.com/api_keys" },
-        { id = "mistral",     icon = "🌬️", name = "Mistral",         url = "https://api.mistral.ai/v1",                               keyurl = "console.mistral.ai/api-keys" },
-        { id = "together",    icon = "🤝", name = "Together AI",     url = "https://api.together.xyz/v1",                             keyurl = "api.together.ai/settings/api-keys" },
+        { id = "ollamalocal", icon = "🖥️", name = "Local AI",     url = "http://localhost:11434/api", keyurl = nil },
+        { id = "ollama",      icon = "🦙", name = "Ollama Cloud", url = "https://ollama.com/api",     keyurl = "ollama.com/settings/keys" },
+        { id = "openrouter",  icon = "🔀", name = "OpenRouter",   url = "https://openrouter.ai/api/v1", keyurl = "openrouter.ai/settings/keys" },
 }
 
 -- ═══════════════════════════════════════════════════════════════
--- ENDPOINTS — ทุก request ประกอบ URL จาก Base URL สด ๆ (ทุกค่าย)
---   • Ollama native (ค่าเริ่มต้น):  https://ollama.com/api → /chat /tags /version
---   • Ollama ในเครื่อง:            http://localhost:11434/api → ไม่ต้องใช้คีย์
---   • ค่ายแบบ OpenAI-compatible:    Base URL ลงท้าย /v1 หรือ /openai
---     (OpenRouter/Groq/OpenAI/Gemini/DeepSeek/Mistral/Together)
---     → ใช้ /chat/completions + /models อัตโนมัติ
---   • พิมพ์ URL ค่ายอื่น/เซิร์ฟเวอร์เองได้ผ่านช่อง Base URL
+-- ENDPOINTS — ทุก request ประกอบ URL จาก Base URL สด ๆ
+--   • Local AI (ค่าเริ่มต้น):  http://localhost:11434/api → /chat /tags /version
+--     ไม่ต้องใช้คีย์ + รองรับ IP วงแลน (192.168.x / 10.x / 172.16-31.x)
+--   • Ollama Cloud:            https://ollama.com/api → ใช้คีย์ ollama.com/settings/keys
+--   • OpenRouter:              https://openrouter.ai/api/v1 (ลงท้าย /v1 → โหมด
+--     OpenAI-compatible) → ใช้ /chat/completions + /models อัตโนมัติ
+--   • พิมพ์ URL เซิร์ฟเวอร์เองได้ผ่านช่อง Base URL (เช่น LM Studio)
 -- ═══════════════════════════════════════════════════════════════
 EP = {
-        DEFAULT = "https://ollama.com/api",
+        DEFAULT = "http://localhost:11434/api",   -- 🖥️ เน้น Local AI เป็นค่าเริ่มต้น
         base = function()
                 local b = type(S.baseURL) == "string" and S.baseURL or ""
                 b = b:gsub("%s+", ""):gsub("/+$", "")
                 if #b < 8 then return EP.DEFAULT end
-                -- Ollama ที่พิมพ์สั้น ไม่มี path (เช่น http://localhost:11434 / https://ollama.com)
+                -- เครื่อง Ollama ที่พิมพ์สั้น ไม่มี path (เช่น http://localhost:11434 / http://192.168.1.50:11434)
                 --   → เติม /api ให้เอง ให้ endpoint ครบ
                 local lb = b:lower()
-                if lb:match("^https?://[^/]+$") and (lb:find("localhost", 1, true) or lb:find("127.0.0.1", 1, true)
-                                or lb:find("0.0.0.0", 1, true) or lb:find("ollama.com", 1, true)) then
+                local shortHost = lb:match("^https?://[^/]+$") ~= nil
+                local homeHost = lb:find("localhost", 1, true) or lb:find("127.0.0.1", 1, true)
+                                or lb:find("0.0.0.0", 1, true) or lb:find("ollama.com", 1, true)
+                                or lb:match("^https?://192%.168%.") or lb:match("^https?://10%.")
+                                or lb:match("^https?://172%.(1[6-9]|2%d|30|31)%.")
+                if shortHost and homeHost then
                         b = b .. "/api"
                 end
                 return b
         end,
-        oai = function()          -- ค่ายแบบ OpenAI-compatible: ลงท้าย /v1 หรือ /openai (Gemini)
+        oai = function()          -- โหมด OpenAI-compatible: Base URL ลงท้าย /v1 หรือ /openai
                 local b = EP.base():lower()
                 return b:sub(-3) == "/v1" or b:sub(-7) == "/openai"
         end,
         chat = function()  return EP.oai() and (EP.base() .. "/chat/completions") or (EP.base() .. "/chat")   end,
         tags = function()  return EP.oai() and (EP.base() .. "/models")          or (EP.base() .. "/tags")    end,
         ver  = function()  return EP.base() .. "/version"                                            end,
-        isLocal = function()      -- Ollama ในเครื่อง → ไม่ต้องใช้คีย์
+        isLocal = function()      -- 🖥️ Local AI (Ollama ในเครื่อง/วงแลนบ้าน) → ไม่ต้องใช้คีย์
                 local b = EP.base():lower()
                 -- ⚠ ต้องคืน boolean เสมอ (find คืนตัวเลข — เคยถูกเอาไปใส่ .Visible ตรง ๆ แล้วพัง)
-                return (b:find("localhost", 1, true) or b:find("127.0.0.1", 1, true) or b:find("0.0.0.0", 1, true)) ~= nil
+                if b:find("localhost", 1, true) or b:find("127.0.0.1", 1, true) or b:find("0.0.0.0", 1, true) then
+                        return true
+                end
+                -- IP วงแลนส่วนตัว (192.168.x.x / 10.x.x.x / 172.16-31.x.x) —
+                --   Ollama บนคอมอื่นในบ้านเดียวกันก็ไม่ต้องใช้คีย์
+                if b:match("^https?://192%.168%.") or b:match("^https?://10%.")
+                                or b:match("^https?://172%.(1[6-9]|2%d|30|31)%.") then
+                        return true
+                end
+                return false
         end,
-        provider = function()     -- ค่ายที่ตรงกับ Base URL ปัจจุบัน (nil = custom URL)
+        provider = function()     -- ตัวเลือกที่ตรงกับ Base URL ปัจจุบัน (nil = URL กำหนดเอง)
                 local b = EP.base():lower()
                 for _, p in ipairs(PROVIDERS) do
                         if b == p.url:lower() then return p end
@@ -529,10 +538,10 @@ local function loadSettings()
 end
 loadSettings()
 
--- Guard โมเดล: id ที่มี "/" (เช่น meta-llama/... ของ OpenRouter/Groq/Gemini)
+-- Guard โมเดล: id ที่มี "/" (เช่น meta-llama/... ของ OpenRouter)
 --   ใช้ได้เฉพาะค่ายแบบ OpenAI-compatible — ถ้า Base URL เป็น Ollama native
 --   ให้รีเซ็ตเป็นค่าเริ่มต้น (id ของ Ollama ไม่มี "/")
---   ⚠ ยกเว้น Local AI (localhost) — เจ้าของพิมพ์ชื่อโมเดลเองได้ บางเซิร์ฟเวอร์
+--   ⚠ ยกเว้น Local AI (localhost/วงแลน) — เจ้าของพิมพ์ชื่อโมเดลเองได้ บางเซิร์ฟเวอร์
 --   (LM Studio/llama.cpp) ใช้ id ที่มี "/" → เก็บไว้ตามที่พิมพ์
 if type(S.currentModel) ~= "string" or #S.currentModel < 2
                 or (S.currentModel:find("/", 1, true) and not EP.oai() and not EP.isLocal()) then
@@ -2130,7 +2139,7 @@ function PX.buildPersona()
 end
 
 -- ═══════════════════════════════════════════════════════════════
--- ⊢ callAI — multi-provider multi-key sequential + context pipeline
+-- ⊢ callAI — Local AI/Ollama/OpenRouter · multi-key sequential + context pipeline
 -- ═══════════════════════════════════════════════════════════════
 local function callAI(userMsg, uid, name, isObs, skipSave, isToxic)
         PX.unstick()
@@ -2921,7 +2930,7 @@ L(logoBox, "S", UDim2.new(1, 0, 1, 0), UDim2.new(), 17, BF, Color3.fromRGB(255, 
 
 -- title + tagline
 Lk(TopBar, "SEBAS AI", UDim2.fromOffset(130, 17), UDim2.fromOffset(50, 9), 14, BF, "T1", Enum.TextXAlignment.Left, 13)
-local tagline = Lk(TopBar, "Multi-Provider · " .. VERSION_TAG, UDim2.fromOffset(160, 11), UDim2.fromOffset(50, 25), 9, RF, "T2", Enum.TextXAlignment.Left, 13)
+local tagline = Lk(TopBar, "Local AI · " .. VERSION_TAG, UDim2.fromOffset(160, 11), UDim2.fromOffset(50, 25), 9, RF, "T2", Enum.TextXAlignment.Left, 13)
 
 -- status pill (ขวาบน — แสดง key/token แบบ event-driven)
 -- 120px (เดิม 142) = เว้นที่ให้ title บนจอแคบ 330px กันทับกัน
@@ -4676,7 +4685,7 @@ updateHUD()
 -- ═══════════════════════════════════════════════════════════════
 local PAGE_META = {
         profile  = { "Profile",    "Your account & premium status" },
-        api       = { "API Keys",   "Manage your Ollama keys" },
+        api       = { "API Keys",   "Local AI · Ollama · OpenRouter" },
         chat      = { "Chat",       "Talk to Sebas directly — no range limit" },
         controls  = { "Controls",   "Chat & observe behaviour" },
         settings  = { "Settings",   "Range, timing and interface" },
@@ -4788,13 +4797,13 @@ end -- part wrap
 do -- p05 API PAGE
 
 -- ═══════════════════════════════════════════════════════════════
--- PAGE: API KEYS (MULTI-KEY MANAGER)
+-- PAGE: API KEYS (LOCAL AI / OLLAMA / OPENROUTER)
 -- ═══════════════════════════════════════════════════════════════
 local pgAPI = makePage("api")
 
 do
         local apiCard1 = mkCard(pgAPI, 486, 1)
-        mkLabel(apiCard1, "🌐 API PROVIDER · MULTI-KEY (ทุกค่าย)", 4)
+        mkLabel(apiCard1, "🖥️ API PROVIDER — LOCAL AI · OLLAMA · OPENROUTER", 4)
 
         -- ─── Slider เลือกจำนวนคีย์ 1-10 (สไตล์ใหม่ ลากลื่น) ───
         local skRow = Instance.new("Frame", apiCard1)
@@ -4879,8 +4888,8 @@ do
                 end
         end)
 
-        -- ─── PROVIDER — กดเลือกค่ายได้ทุกเจ้า (ชิปเลื่อนแนวนอน) ───
-        Lk(apiCard1, "🌐  PROVIDER — กดเลือกค่าย (Base URL เปลี่ยนตาม)", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(8, 60), 8, BF, "T2", Enum.TextXAlignment.Left, 15)
+        -- ─── PROVIDER — เหลือ 3 ตัวตามคำขอเจ้าของ เน้น Local AI ก่อน (ชิปเลื่อนแนวนอน) ───
+        Lk(apiCard1, "🖥️  PROVIDER — Local AI แนะนำ (ไม่ต้องใช้คีย์) / Ollama Cloud / OpenRouter", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(8, 60), 8, BF, "T2", Enum.TextXAlignment.Left, 15)
 
         local provScroll = Instance.new("ScrollingFrame", apiCard1)
         provScroll.Size = UDim2.new(1, -16, 0, 26)
@@ -4916,12 +4925,14 @@ do
                 chip.ZIndex = 16
                 Instance.new("UICorner", chip).CornerRadius = UDim.new(0, 6)
                 themed(chip, "BackgroundColor3", "CD")
+                -- 🖥️ เน้น Local AI: ชิปตัวแรกมีขอบสี AC ให้เด่นกว่าตัวอื่น
+                if p.id == "ollamalocal" then Sk(chip, "AC", 1, 0.4) end
                 provChips[p.id] = chip
                 totalW = totalW + w + 4
         end
         provScroll.CanvasSize = UDim2.fromOffset(math.floor(totalW) + 4, 0)
 
-        -- ─── Base URL — ระบบเลือกโมเดล/แชทดึงจาก URL นี้ทั้งหมด (ทุกค่าย) ───
+        -- ─── Base URL — ระบบเลือกโมเดล/แชทดึงจาก URL นี้ทั้งหมด ───
         local baseRow = Instance.new("Frame", apiCard1)
         baseRow.Size = UDim2.new(1, -16, 0, 24)
         baseRow.Position = UDim2.fromOffset(8, 106)
@@ -4931,7 +4942,7 @@ do
         baseBox.Size = UDim2.new(1, 0, 1, 0)
         baseBox.BackgroundColor3 = C.CD; baseBox.BorderSizePixel = 0
         baseBox.Text = (type(S.baseURL) == "string" and #S.baseURL > 3) and S.baseURL or EP.DEFAULT
-        baseBox.PlaceholderText = "🌐 Base URL — เลือกค่ายข้างบน หรือพิมพ์เอง"
+        baseBox.PlaceholderText = "🖥️ Base URL — เลือกด้านบน หรือพิมพ์เอง (เช่น http://192.168.1.50:11434)"
         baseBox.TextColor3 = C.T1; baseBox.PlaceholderColor3 = C.T2
         baseBox.Font = Enum.Font.Code; baseBox.TextSize = 9
         baseBox.TextTruncate = Enum.TextTruncate.AtEnd
@@ -4943,7 +4954,8 @@ do
         -- (FocusLost ของ baseBox ต่ออยู่ด้านล่าง หลัง refreshProviderUI — ใช้ร่วมกับชิปค่าย)
 
         -- ─── ลำดับคีย์ (ไม่มีโหมดให้เลือก — ใช้ตามลำดับตายตัว) ───
-        Lk(apiCard1, "ลำดับคีย์: ใช้ #1 จนติดลิมิต → ข้ามไป #2 → #3 ... (สลับให้เอง)",
+        --   🖥️ โหมด Local AI: ไม่ต้องใช้คีย์ → สลับข้อความเป็นคำแนะนำ (เน้นให้ใช้ได้เลย)
+        local orderLbl = Lk(apiCard1, "ลำดับคีย์: ใช้ #1 จนติดลิมิต → ข้ามไป #2 → #3 ... (สลับให้เอง)",
                 UDim2.new(1, -16, 0, 14), UDim2.fromOffset(8, 134), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
 
         -- ─── ช่องคีย์ 10 ช่อง + จุดสถานะ ───
@@ -4999,7 +5011,7 @@ do
         local creditLbl = Lk(apiCard1, "🌐  API: — (กด Connect All เพื่อตรวจ)", UDim2.new(1, -16, 0, 14), UDim2.fromOffset(10, 448), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
         creditLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
-        Lk(apiCard1, "SEBAS " .. VERSION_TAG .. " · MULTI-PROVIDER · by IKKYU", UDim2.new(1, -16, 0, 12), UDim2.fromOffset(10, 464), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
+        Lk(apiCard1, "SEBAS " .. VERSION_TAG .. " · LOCAL · OLLAMA · OPENROUTER · by IKKYU", UDim2.new(1, -16, 0, 12), UDim2.fromOffset(10, 464), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
 
         -- ─── updateKeyDots: จุดสถานะแต่ละคีย์ ───
         local function updateKeyDots()
@@ -5098,14 +5110,18 @@ do
         UIX.updateKeyDots = updateKeyDots
         UIX.keyBox = keyRows[1].box
 
-        -- ─── refreshProviderUI: หน้าตาทั้งการ์ดตามค่ายปัจจุบัน (ชิป/placeholder/เครดิต) ───
+        -- ─── refreshProviderUI: หน้าตาทั้งการ์ดตามตัวเลือกปัจจุบัน (ชิป/placeholder/เครดิต) ───
         local function refreshProviderUI()
                 local cur = EP.provider()
                 baseBox.Text = (type(S.baseURL) == "string" and #S.baseURL > 3) and S.baseURL or EP.base()
+                -- 🖥️ Local AI: ป้ายกลางการ์ดบอกว่าไม่ต้องใช้คีย์ (เน้นให้ใช้ได้ทันที)
+                orderLbl.Text = EP.isLocal()
+                        and "🖥️ Local AI — Ollama ในเครื่อง ไม่ต้องใช้คีย์ กด Connect All ได้เลย"
+                        or "ลำดับคีย์: ใช้ #1 จนติดลิมิต → ข้ามไป #2 → #3 ... (สลับให้เอง)"
                 for i = 1, MAX_KEYS do
                         local r = keyRows[i]
                         if r then
-                                if cur and cur.id == "ollamalocal" then
+                                if EP.isLocal() then
                                         r.box.PlaceholderText = "Ollama ในเครื่อง — ไม่ต้องใส่คีย์"
                                 elseif cur and cur.keyurl then
                                         r.box.PlaceholderText = "API key " .. i .. " (" .. cur.keyurl .. ")"
@@ -5119,20 +5135,22 @@ do
                         ch.BackgroundColor3 = active and C.AC or C.CD
                         ch.TextColor3 = active and Color3.fromRGB(255, 255, 255) or C.T1
                 end
-                creditLbl.Text = (cur and (cur.icon .. "  " .. cur.name) or "🌐  Custom API")
+                creditLbl.Text = (cur and (cur.icon .. "  " .. cur.name) or (EP.isLocal() and "🖥️  Local AI" or "🌐  Custom API"))
                         .. ": — (กด Connect All เพื่อตรวจ)"
+                -- ปุ่ม Auto: local → กลายเป็นปุ่มต่อ Local AI (ไม่ต้องสร้างคีย์)
+                if UIX.setAutoKeyBtn then UIX.setAutoKeyBtn() end
                 -- แถว "พิมพ์ชื่อโมเดลเอง" (การ์ด AI MODEL) โชว์เฉพาะ Local AI
                 --   (การ์ดสร้างทีหลังฟังก์ชันนี้ — กันครั้งแรกที่ยังไม่มี)
                 if UIX.setLocalModelUI then UIX.setLocalModelUI() end
         end
 
-        -- ─── applyProvider: กดชิปค่าย → สลับ Base URL + ล้างแคชโมเดล + รีเฟรชการ์ด ───
+        -- ─── applyProvider: กดชิป → สลับ Base URL + ล้างแคชโมเดล + รีเฟรชการ์ด ───
         local function applyProvider(p)
                 if p then
                         S.baseURL = p.url == EP.DEFAULT and "" or p.url
                         saveSettings()
                 end
-                -- ล้างแคชโมเดลของค่ายเดิม ให้ดึงใหม่จาก Base URL ใหม่
+                -- ล้างแคชโมเดลของตัวเลือกเดิม ให้ดึงใหม่จาก Base URL ใหม่
                 OR.models = {}; OR.lastFetch = 0
                 refreshProviderUI()
                 if UIX.updateKeyDots then UIX.updateKeyDots() end
@@ -5142,7 +5160,7 @@ do
                 end
         end
 
-        -- กดชิป = เลือกค่าย (Base URL เปลี่ยนตาม โมเดลดึงสดใหม่)
+        -- กดชิป = เลือก provider (Base URL เปลี่ยนตาม โมเดลดึงสดใหม่)
         for _, p in ipairs(PROVIDERS) do
                 local chip = provChips[p.id]
                 if chip then
@@ -5268,7 +5286,7 @@ do
                                 return
                         end
                         local key = (type(UIX.keyBox.Text) == "string" and UIX.keyBox.Text or ""):gsub("%s+", "")
-                        -- ทดสอบยิงที่ Base URL จริง: มีคีย์/ค่าย OpenAI-compat → /models · ไม่มี → /version (Ollama)
+                        -- ทดสอบยิงที่ Base URL จริง: มีคีย์/โหมด OpenAI-compat → /models · ไม่มี → /version (Ollama)
                         local testUrl = (#key >= 10 or EP.oai()) and EP.tags() or EP.ver()
                         local headers = {}
                         if #key >= 10 then headers["Authorization"] = "Bearer " .. key end
@@ -5291,8 +5309,18 @@ do
         end)
 
         local autoBtn = mkBtn(dbCard, "⚡  Auto Create API Key", UDim2.new(1, -16, 0, 28), UDim2.fromOffset(8, 78), "accent", 10, 16)
+        autoBtn.Name = "AutoKeyBtn"
+        -- 🖥️ Local AI: ปุ่มนี้กลายเป็น "ต่อ Local AI" — ไม่ต้องสร้างคีย์
+        UIX.setAutoKeyBtn = function()
+                autoBtn.Text = EP.isLocal() and "🖥️  ต่อ Local AI (ไม่ต้องใช้คีย์)" or "⚡  Auto Create API Key"
+        end
+        UIX.setAutoKeyBtn()
         autoBtn.MouseButton1Click:Connect(function()
-                if UIX.startAutoKey then UIX.startAutoKey() end
+                if EP.isLocal() then
+                        if doConnect then doConnect() end
+                else
+                        if UIX.startAutoKey then UIX.startAutoKey() end
+                end
         end)
 end
 
@@ -5575,7 +5603,7 @@ do
 
         local aboutCard = mkCard(pgSet, 64, 3)
         mkLabel(aboutCard, "ABOUT", 4)
-        Lk(aboutCard, "SEBAS AI " .. VERSION_TAG .. " · LUXE Redesign · Ollama Multi-Key", UDim2.new(1, -16, 0, 13), UDim2.fromOffset(10, 18), 8, RF, "T1", Enum.TextXAlignment.Left, 15)
+        Lk(aboutCard, "SEBAS AI " .. VERSION_TAG .. " · Local AI · Ollama · OpenRouter", UDim2.new(1, -16, 0, 13), UDim2.fromOffset(10, 18), 8, RF, "T1", Enum.TextXAlignment.Left, 15)
         Lk(aboutCard, "by IKKYU — premium, smooth, lightweight, mobile-first", UDim2.new(1, -16, 0, 13), UDim2.fromOffset(10, 33), 8, RF, "T2", Enum.TextXAlignment.Left, 15)
         Lk(aboutCard, "ลาก: เส้นล่าง/แถบบน · ย่อ: ปุ่ม — · ขยาย: แตะ pill · ปรับขนาด: มุมซ้ายล่าง", UDim2.new(1, -16, 0, 13), UDim2.fromOffset(10, 47), 7, RF, "T2", Enum.TextXAlignment.Left, 15)
 
@@ -6314,10 +6342,10 @@ end
 do -- p09 MODALS+CONNECT (locals หมดอายุตอนจบ part)
 
 -- ═══════════════════════════════════════════════════════════════
--- MODEL REGISTRY — ดึงโมเดลสดจาก {Base URL} ทุกค่าย
---   • Ollama native:  /tags  (models[] + details{})
---   • ค่าย OpenAI-compatible (/v1, /openai): /models (data[])
---     — ค่ายที่ส่งราคามาด้วย (OpenRouter pricing.prompt/completion)
+-- MODEL REGISTRY — ดึงโมเดลสดจาก {Base URL}
+--   • Local AI / Ollama Cloud (native):  /tags  (models[] + details{})
+--   • OpenRouter (/v1):  /models (data[])
+--     — ส่งราคามาด้วย (pricing.prompt/completion)
 --       จะเรียง "ถูกสุดก่อน → แพงลงไปตามลำดับ" อัตโนมัติ
 -- ═══════════════════════════════════════════════════════════════
 OR = { models = {}, lastFetch = 0, sortedByPrice = false } -- global: ใช้ข้าม part
@@ -6420,7 +6448,7 @@ OR.fetchModels = function(silent)
                 end
         end
         -- เรียงลำดับ: ค่ายที่ส่งราคามา (OpenRouter) → ถูกสุดก่อน ไล่แพงลงไปตามลำดับ
-        --   ค่ายที่ไม่ส่งราคา (Ollama/Groq/OpenAI/Gemini...) → เรียงตามชื่อตามเดิม
+        --   ค่ายที่ไม่ส่งราคา (Local AI/Ollama Cloud) → เรียงตามชื่อตามเดิม
         local hasPrice = false
         for _, m in ipairs(list) do
                 if m.pin >= 0 then hasPrice = true; break end
@@ -7028,7 +7056,7 @@ do
                         updateHUD()
                         if not fromAuto then
                                 local prov = EP.provider()
-                                notify("🔑 API Keys", "ยังไม่ได้ใส่คีย์ — สร้างได้ที่ " .. (prov and prov.keyurl or "หน้าเว็บของค่ายที่ใช้"), "err")
+                                notify("🔑 API Keys", "ยังไม่ได้ใส่คีย์ — สร้างได้ที่ " .. (prov and prov.keyurl or "หน้าเว็บของผู้ให้บริการ"), "err")
                                 SND.play("error")
                         end
                         return
@@ -7077,7 +7105,7 @@ do
                                 UIX.statusLbl.Text = "● Connected ✓ (" .. okCount .. "/" .. math.max(filled, 1) .. (EP.isLocal() and filled == 0 and " · local)" or " keys)")
                                 UIX.statusLbl.TextColor3 = C.OK
                                 pillDot.BackgroundColor3 = C.OK
-                                -- ข้อมูลเซิร์ฟเวอร์: เวอร์ชั่น Ollama (เฉพาะโหมด native) + สรุปคีย์ตามค่าย
+                                -- ข้อมูลเซิร์ฟเวอร์: เวอร์ชั่น Ollama (เฉพาะโหมด native) + สรุปคีย์ตามผู้ให้บริการ
                                 task.spawn(function()
                                         local verTxt = ""
                                         if not EP.oai() then
@@ -7728,8 +7756,8 @@ do
 
         -- ═══ 13 ขั้น ═══
         local steps = {
-                { tab = "api", title = "🔑  API Keys (Multi-Key)",
-                        desc = "เลือกค่ายได้ทุกเจ้าที่แถบ PROVIDER (Ollama/OpenRouter/Groq/Gemini...) — ใส่ API key ได้สูงสุด 10 ช่อง",
+                { tab = "api", title = "🔑  API Keys (Local AI)",
+                        desc = "เลือกที่แถบ PROVIDER: 🖥️ Local AI (Ollama ในเครื่อง ไม่ต้องใช้คีย์ แนะนำ) / 🦙 Ollama Cloud / 🔀 OpenRouter — ใส่ API key ได้สูงสุด 10 ช่อง",
                         getEl = function() return UIX.keyBox end, side = "bottom" },
                 { tab = "api", title = "🎚️  Active Keys Slider",
                         desc = "เลื่อนเลือกจำนวนคีย์ที่เปิดใช้ 1-10 คีย์ — slider ลากได้ลื่น ๆ",
@@ -9079,6 +9107,14 @@ do
                         task.delay(3, akHide)
                         return
                 end
+                -- 🖥️ Local AI (Ollama ในเครื่อง/วงแลน) — ไม่ต้องสร้างคีย์ ต่อเข้าเครื่องได้เลย
+                if EP.isLocal() then
+                        akShow("🖥️ Local AI ไม่ต้องใช้ API key\nกด Connect All ได้เลย", C.OK)
+                        SND.play("success")
+                        task.delay(4, akHide)
+                        pcall(function() doConnect(true) end)
+                        return
+                end
                 if not Http then
                         akShow("❌ Executor ไม่รองรับ HTTP", C.NO)
                         return
@@ -9237,6 +9273,11 @@ do
                 for i = 1, MAX_KEYS do
                         if type(S.keys[i]) == "string" and #S.keys[i] >= 10 then hadSavedKey = true; break end
                 end
+                -- 🖥️ Local AI เป็นค่าเริ่มต้น — ไม่ต้องมีคีย์ ต่อเข้า Ollama ในเครื่องเลย
+                if EP.isLocal() then
+                        pcall(function() doConnect(true) end)
+                        return
+                end
                 if hadSavedKey then
                         pcall(function() doConnect(true) end)
                         task.wait(4)
@@ -9279,13 +9320,13 @@ if HRP then makeRing() end
 if UIX.currentModelLbl then UIX.currentModelLbl.Text = "Current: " .. S.currentModel end
 updateHUD()
 
--- มีคีย์เก่าบันทึกไว้ → Connect อัตโนมัติ
+-- มีคีย์เก่าบันทึกไว้ / หรือโหมด Local AI → Connect อัตโนมัติ
 do
         local savedCount = 0
         for i = 1, math.clamp(S.activeKeys or 1, 1, MAX_KEYS) do
                 if type(S.keys[i]) == "string" and #S.keys[i] >= 10 then savedCount = savedCount + 1 end
         end
-        if savedCount > 0 then
+        if savedCount > 0 or EP.isLocal() then
                 task.delay(0.6, function() doConnect(true) end)
         end
 end
