@@ -396,6 +396,10 @@ local S = {
         chatOn = false, talkOn = false, prefixName = true,
         key = "", connected = false, thinking = false, thinkStart = 0,
         nextReq = 0, cooldown = 3, responseDelay = 2.0, tokens = 0,
+        -- ✂️ Max Reply Length: ความยาวสูงสุดของคำตอบ AI ที่ส่งลงแชท (ตัวอักษร)
+        --    ป้องกันคำตอบยาว ๆ โดนหั่นเป็นเม็ด ๆ หลายสิบท่อนในแชท Roblox (จำกัด ~200 ตัว/ข้อความ)
+        --    600 = สูงสุด ~3-4 ท่อน · 200 = พอดี 1 ข้อความ · 0 = ไม่ตัด (ส่งเต็มยาวเท่าที่ได้)
+        maxReply = 600,
         playerHistory = {}, playerNames = {}, maxPlayerHist = 2,
         userPersona = "", playerLang = {}, playerNick = {},
         range = 25, globalN = 0, spamT = tick(), playerCD = {},
@@ -511,6 +515,7 @@ local function saveSettings()
                 writefile(SET_FILE, HttpService:JSONEncode({
                         range = S.range, cooldown = S.cooldown, prefixName = S.prefixName,
                         responseDelay = S.responseDelay, traits = S.traits,
+                        maxReply = S.maxReply,
                         userPersona = S.userPersona, observeInterval = S.observeInterval,
                         blacklist = S.blacklist, currentModel = S.currentModel,
                         holdDuration = S.holdDuration, whitelistOn = S.whitelistOn,
@@ -545,6 +550,9 @@ local function loadSettings()
                                 for ck, cv in pairs(v) do
                                         if type(cv) == "string" and #cv > 5 then S.sndId[ck] = cv end
                                 end
+                        elseif k == "maxReply" then
+                                local n = tonumber(v)
+                                if n then S.maxReply = math.clamp(math.floor(n), 0, 4000) end
                         elseif k == "currentModel" and type(v) == "string" then S.currentModel = v; MODEL = v
                         elseif k == "baseURL" and type(v) == "string" then S.baseURL = v
                         elseif k == "currentTheme" and type(v) == "string" then S.currentTheme = v
@@ -2164,13 +2172,21 @@ local function sendChat(text)
         text = text:match("^%s*(.-)%s*$") or ""
         if text:gsub("%s+", "") == "" then return end
         if #text <= CHAT_LIMIT then sendRaw(text); return end
+        -- หั่นยาว: หาจุดจบประโยค (. ! ? ตามด้วยวรรค) ก่อน — ไม่มีค่อยใช้ช่องว่าง
+        --   (ท่อนละ ≤194 ตัว + ท้าย " i/N" รวมแล้วไม่เกินลิมิต 200 ของแชท Roblox)
         local chunks, rem = {}, text
         while #rem > 0 do
                 if #rem <= CHAT_LIMIT then chunks[#chunks + 1] = rem; break end
-                local cut = CHAT_LIMIT
-                for j = CHAT_LIMIT, math.max(CHAT_LIMIT - 30, 1), -1 do
-                        if rem:sub(j, j) == " " then cut = j - 1; break end
+                local sentCut, spCut = nil, nil
+                for j = CHAT_LIMIT, math.max(CHAT_LIMIT - 60, 1), -1 do
+                        local ch = rem:sub(j, j)
+                        local nx = rem:sub(j + 1, j + 1)
+                        if (ch == "." or ch == "!" or ch == "?") and (nx == " " or nx == "\n" or nx == "") then
+                                sentCut = j; break
+                        end
+                        if spCut == nil and ch == " " then spCut = j - 1 end
                 end
+                local cut = sentCut or spCut or CHAT_LIMIT
                 chunks[#chunks + 1] = rem:sub(1, cut)
                 rem = (rem:sub(cut + 1):match("^%s*(.-)%s*$") or "")
         end
@@ -2180,6 +2196,36 @@ local function sendChat(text)
                         if i < #chunks then task.wait(0.5) end
                 end
         end)
+end
+
+-- ✂️ ตัดคำตอบให้สั้นลงตามขีดจำกัด (S.maxReply) — ตัดที่จุดจบประโยค ไม่ใช่ตัดกลางคำ
+--    ใช้กับคำตอบที่จะส่งลงแชทเท่านั้น (หน้า GUI / ความจำยังเก็บฉบับเต็ม)
+--    limit <= 0 = ไม่ตัด · ตัดแล้วต่อท้าย " …" ให้รู้ว่ายังมีต่อ
+--    (จุดตัดใช้แต่ ASCII . ! ? \n และช่องว่าง — ไม่มีทางหั่นกลางอักษรไทย/emoji UTF-8)
+function PX.capReply(text, limit)
+        if type(text) ~= "string" then return text end
+        limit = tonumber(limit)
+        if limit == nil then limit = tonumber(S.maxReply) or 600 end
+        if limit <= 0 or #text <= limit then return text end
+        local cut = text:sub(1, limit)
+        -- 1) จุดจบประโยคล่าสุด (ASCII เท่านั้น — ปลอดภัยกับ UTF-8 ทุกภาษา)
+        local best = 0
+        for j = #cut, 1, -1 do
+                local ch = cut:sub(j, j)
+                if ch == "\n" or ch == "." or ch == "!" or ch == "?" then best = j; break end
+        end
+        -- 2) เจอแต่อยู่หลังไป (ตัดแล้วสั้นกว่าครึ่งเดิม) → เลือกช่องว่างล่าสุดแทน
+        if best < math.floor(limit * 0.5) then
+                best = 0
+                for j = #cut, 1, -1 do
+                        if cut:sub(j, j) == " " then best = j - 1; break end
+                end
+        end
+        -- 3) ยาวติดกันไม่มีวรรคเลย → ตัดตรงตำแหน่งลิมิต
+        if best < math.floor(limit * 0.5) then best = limit end
+        local out = cut:sub(1, best):gsub("[%s\n]+$", "")
+        if out == "" then out = cut end
+        return out .. " …"
 end
 
 -- ═══════════════════════════════════════════════════════════════
@@ -2199,6 +2245,14 @@ function PX.buildPersona()
         local p = { CORE_PERSONA, OPERATING_RULES }
         local m = PX.moodLine()
         if m ~= "" then p[#p + 1] = m end
+        -- กฎความยาวคำตอบตามค่า Max Reply Length ที่ตั้งไว้ (หน้า Settings)
+        --   สอนโมเดลให้พูดสั้น สอดคล้องกับตัวตัดจริง (PX.capReply) — ค่า 0 = ไม่บังคับ
+        local capN = tonumber(S.maxReply) or 600
+        if capN > 0 then
+                p[#p + 1] = "Response length rule: keep EVERY reply under " .. capN
+                        .. " characters (" .. (capN <= 250 and "1-2 short sentences" or "2-4 short sentences")
+                        .. "). Never write essays, lists, or long explanations unless explicitly asked for detail."
+        end
         if S.userPersona and S.userPersona ~= "" then p[#p + 1] = "Extra: " .. S.userPersona end
         return table.concat(p, "\n")
 end
@@ -2543,6 +2597,9 @@ end
 -- ═══════════════════════════════════════════════════════════════
 local function perform(reply, name, uid, skipPrefix)
         if type(reply) ~= "string" then return end
+        -- ✂️ ตัดความยาวก่อนเพิ่ม prefix — กันคำตอบยาวถูกหั่นเป็นหลายท่อนในแชท
+        --   (ความจำ/ประวัติบันทึกฉบับเต็มไว้แล้วก่อนถึงตรงนี้)
+        reply = PX.capReply(reply)
         local msg = reply:gsub("^%s+", ""):gsub("%s+$", "")
         if not msg:match("%S") then return end
         if not skipPrefix and S.prefixName then
@@ -2825,7 +2882,7 @@ local function doObserve()
                 if not S.talkOn or not S.connected then return end
                 local reply = callAI(prompt, nil, nil, false)
                 if reply then
-                        local m = reply:gsub("^%s+", ""):gsub("%s+$", "")
+                        local m = PX.capReply(reply):gsub("^%s+", ""):gsub("%s+$", "")
                         if m:match("%S") then sendChat(m) end
                 end
         end)
@@ -5836,11 +5893,13 @@ end
 do
         local pgSet = makePage("settings")
 
-        local setCard = mkCard(pgSet, 130, 1)
+        local setCard = mkCard(pgSet, 164, 1)
         mkLabel(setCard, "GENERAL", 4)
         mkInput(setCard, 18, "📡  Range (studs · 0 = unlimited)", "range", 0, 9999, makeRing)
         mkInput(setCard, 52, "⏱️  API Cooldown (sec)", "cooldown", 0, 60)
         mkInput(setCard, 86, "🤚  Hold Duration (sec)", "holdDuration", 0.1, 10)
+        -- ✂️ ความยาวคำตอบสูงสุดที่ส่งลงแชท (กันคำตอบยาวโดนหั่นเป็นหลายท่อน)
+        mkInput(setCard, 120, "✂️  Max Reply Length (0 = no limit)", "maxReply", 0, 4000)
 
         local uiCard = mkCard(pgSet, 140, 2)
         mkLabel(uiCard, "INTERFACE", 4)
